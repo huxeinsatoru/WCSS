@@ -1,0 +1,53 @@
+/**
+ * Example WCSS file demonstrating various features
+ */
+
+.button {
+  padding: $spacing.md;
+  background: $colors.primary;
+  color: $colors.white;
+  border: none;
+  border-radius: 0.5rem;
+  font-family: $typography.font-sans;
+  font-size: $typography.text-base;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.button:hover {
+  background: $colors.primary-dark;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.button:active {
+  transform: translateY(0);
+}
+
+.button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.button-secondary {
+  background: $colors.secondary;
+}
+
+.button-danger {
+  background: $colors.danger;
+}
+
+/* Responsive design */
+@media ($breakpoints.sm) {
+  .button {
+    padding: $spacing.sm;
+    font-size: $typography.text-sm;
+  }
+}
+
+@media ($breakpoints.lg) {
+  .button {
+    padding: $spacing.lg;
+    font-size: $typography.text-lg;
+  }
+}
