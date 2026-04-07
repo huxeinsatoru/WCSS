@@ -59,13 +59,18 @@ fn rule_with_class_strategy(class_name: String) -> impl Strategy<Value = Rule> {
     prop::collection::vec(declaration_strategy(), 1..=5).prop_map(move |declarations| Rule {
         selector: Selector {
             class_name: class_name.clone(),
+            kind: SelectorKind::Class,
             combinators: vec![],
             pseudo_elements: vec![],
+            pseudo_classes: vec![],
+            attributes: vec![],
             span: Span::empty(),
         },
+        selectors: vec![],
         declarations,
         states: vec![],
         responsive: vec![],
+        nested_rules: vec![],
         span: Span::empty(),
     })
 }
@@ -112,10 +117,14 @@ fn stylesheet_with_usage_strategy() -> impl Strategy<Value = (StyleSheet, Vec<St
                             rules.push(Rule {
                                 selector: Selector {
                                     class_name: class.clone(),
+                                    kind: SelectorKind::Class,
                                     combinators: vec![],
                                     pseudo_elements: vec![],
+                                    pseudo_classes: vec![],
+                                    attributes: vec![],
                                     span: Span::empty(),
                                 },
+                                selectors: vec![],
                                 declarations: vec![Declaration {
                                     property: Property::Standard("color".to_string()),
                                     value: Value::Literal("red".to_string()),
@@ -124,6 +133,7 @@ fn stylesheet_with_usage_strategy() -> impl Strategy<Value = (StyleSheet, Vec<St
                                 }],
                                 states: vec![],
                                 responsive: vec![],
+                                nested_rules: vec![],
                                 span: Span::empty(),
                             });
                         }
@@ -131,6 +141,7 @@ fn stylesheet_with_usage_strategy() -> impl Strategy<Value = (StyleSheet, Vec<St
                     
                     let stylesheet = StyleSheet {
                         rules,
+                        at_rules: vec![],
                         span: Span::empty(),
                     };
                     (stylesheet, used_classes.clone(), unused_classes.clone())

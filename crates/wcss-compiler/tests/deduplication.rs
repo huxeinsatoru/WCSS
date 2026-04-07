@@ -64,13 +64,18 @@ fn rule_strategy(class_name: String, declarations: Vec<Declaration>) -> Rule {
     Rule {
         selector: Selector {
             class_name,
+            kind: SelectorKind::Class,
             combinators: vec![],
             pseudo_elements: vec![],
+            pseudo_classes: vec![],
+            attributes: vec![],
             span: Span::empty(),
         },
+        selectors: vec![],
         declarations,
         states: vec![],
         responsive: vec![],
+        nested_rules: vec![],
         span: Span::empty(),
     }
 }
@@ -123,6 +128,7 @@ fn stylesheet_with_duplicates_strategy() -> impl Strategy<Value = (StyleSheet, H
                 
                 let stylesheet = StyleSheet {
                     rules,
+                    at_rules: vec![],
                     span: Span::empty(),
                 };
                 
@@ -299,6 +305,7 @@ proptest! {
         
         let stylesheet = StyleSheet {
             rules: rules.clone(),
+            at_rules: vec![],
             span: Span::empty(),
         };
         

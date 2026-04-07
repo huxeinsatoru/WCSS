@@ -1,0 +1,51 @@
+.button {
+  padding: 1rem;
+  background: #3b82f6;
+  color: white;
+  border-radius: 0.5rem;
+  font-size: 1rem;
+}
+
+.button:hover {
+  background: #2563eb;
+}
+
+.card {
+  padding: 2rem;
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.5rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 1rem;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 2rem;
+}
+
+.text-center {
+  text-align: center;
+}
+
+.text-primary {
+  color: #3b82f6;
+}
+
+.text-secondary {
+  color: #8b5cf6;
+}
+
+.bg-gray {
+  background: #f3f4f6;
+}
+
+.rounded {
+  border-radius: 0.5rem;
+}

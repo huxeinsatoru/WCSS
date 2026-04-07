@@ -1,11 +1,15 @@
 {
   "name": "wcss-cli",
-  "version": "0.1.1",
+  "version": "0.2.3",
   "description": "Command-line interface for WCSS framework",
   "main": "dist/index.js",
   "bin": {
     "wcss": "dist/cli.js"
   },
+  "files": [
+    "dist",
+    "README.md"
+  ],
   "scripts": {
     "build": "tsc",
     "dev": "tsc --watch",

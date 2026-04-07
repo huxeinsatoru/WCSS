@@ -250,6 +250,11 @@ proptest! {
                     spacing: chain_tokens.spacing,
                     typography: chain_tokens.typography,
                     breakpoints: chain_tokens.breakpoints,
+                    shadows: chain_tokens.shadows,
+                    borders: chain_tokens.borders,
+                    radii: chain_tokens.radii,
+                    zindex: chain_tokens.zindex,
+                    opacity: chain_tokens.opacity,
                 }
             },
             TokenCategory::Spacing => {
@@ -264,6 +269,11 @@ proptest! {
                     spacing,
                     typography: chain_tokens.typography,
                     breakpoints: chain_tokens.breakpoints,
+                    shadows: chain_tokens.shadows,
+                    borders: chain_tokens.borders,
+                    radii: chain_tokens.radii,
+                    zindex: chain_tokens.zindex,
+                    opacity: chain_tokens.opacity,
                 }
             },
             TokenCategory::Typography => {
@@ -278,6 +288,11 @@ proptest! {
                     spacing: chain_tokens.spacing,
                     typography,
                     breakpoints: chain_tokens.breakpoints,
+                    shadows: chain_tokens.shadows,
+                    borders: chain_tokens.borders,
+                    radii: chain_tokens.radii,
+                    zindex: chain_tokens.zindex,
+                    opacity: chain_tokens.opacity,
                 }
             },
             TokenCategory::Breakpoints => {
@@ -292,6 +307,11 @@ proptest! {
                     spacing: chain_tokens.spacing,
                     typography: chain_tokens.typography,
                     breakpoints,
+                    shadows: chain_tokens.shadows,
+                    borders: chain_tokens.borders,
+                    radii: chain_tokens.radii,
+                    zindex: chain_tokens.zindex,
+                    opacity: chain_tokens.opacity,
                 }
             },
             _ => unreachable!(),

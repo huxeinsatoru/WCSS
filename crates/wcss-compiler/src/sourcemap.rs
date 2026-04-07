@@ -127,15 +127,21 @@ mod tests {
             rules: vec![Rule {
                 selector: Selector {
                     class_name: "btn".to_string(),
+                    kind: SelectorKind::Class,
                     combinators: vec![],
                     pseudo_elements: vec![],
+                    pseudo_classes: vec![],
+                    attributes: vec![],
                     span: Span::new(0, 10, 1, 1),
                 },
+                selectors: vec![],
                 declarations: vec![],
                 states: vec![],
                 responsive: vec![],
+                nested_rules: vec![],
                 span: Span::new(0, 30, 1, 1),
             }],
+            at_rules: vec![],
             span: Span::new(0, 30, 1, 1),
         };
 

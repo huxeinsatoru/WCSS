@@ -2,6 +2,8 @@
 
 Command-line interface for WCSS (Web Compiler Style Sheets) - a fast CSS compiler built with Rust and WebAssembly.
 
+**1.35x faster than UnoCSS, 9.68x faster than Tailwind CSS** with full CSS spec support, plugin system, vendor prefixing, and dark mode.
+
 ## Installation
 
 ```bash
@@ -30,6 +32,17 @@ Compile to CSS:
 ```bash
 wcss build styles.wcss -o output.css
 ```
+
+## Why WCSS?
+
+- **Blazing fast**: 1.73ms for 5000 rules with tree-shaking
+- **Full CSS spec**: All selectors, at-rules, 40+ pseudo-classes, 55+ units
+- **Plugin system**: 6 hooks for custom transformations
+- **Vendor prefixing**: Automatic -webkit-, -moz-, -ms- for 30+ properties
+- **Dark mode**: Built-in support (media, class, attribute strategies)
+- **Modern colors**: oklch, oklab, color-mix(), light-dark()
+- **Tree shaking**: 98% size reduction (340KB → 6.6KB)
+- **W3C Design Tokens**: Multi-platform code generation
 
 ## Commands
 
@@ -173,14 +186,109 @@ Use tokens in WCSS:
 
 ## Features
 
-- **Fast compilation** - Rust-based compiler with WebAssembly
-- **Tree shaking** - Remove unused CSS classes
+- **Fast compilation** - 1.73ms for 5000 rules with tree-shaking
+- **Full CSS spec** - All selectors, at-rules, 40+ pseudo-classes, 55+ units
+- **Tree shaking** - 98% size reduction (340KB → 6.6KB)
+- **Plugin system** - 6 hooks for custom transformations
+- **Vendor prefixing** - Automatic -webkit-, -moz-, -ms- for 30+ properties
+- **Dark mode** - Built-in support (media, class, attribute strategies)
+- **Modern colors** - oklch, oklab, color-mix(), light-dark()
 - **W3C Design Tokens** - Multi-platform code generation
 - **Zero runtime** - Pure CSS output
 - **Watch mode** - Auto-recompile on changes
 - **Source maps** - Debug support
 
 ## Language Features
+
+### Full CSS Selector Support
+
+```wcss
+/* Element, class, ID */
+button { }
+.button { }
+#submit { }
+
+/* Attribute selectors */
+[type="text"] { }
+[class^="btn-"] { }
+[href$=".pdf"] { }
+
+/* Pseudo-classes (40+) */
+:hover, :focus, :active { }
+:first-child, :nth-child(2n) { }
+:not(.disabled), :is(.primary) { }
+:has(> img), :where(.card) { }
+```
+
+### At-Rules
+
+```wcss
+/* Keyframes */
+@keyframes slide {
+  from { transform: translateX(0); }
+  to { transform: translateX(100px); }
+}
+
+/* Media queries */
+@media (min-width: 768px) {
+  .card { padding: 2rem; }
+}
+
+/* Container queries */
+@container (min-width: 400px) {
+  .item { flex: 1; }
+}
+
+/* Layers, supports, import, font-face */
+@layer base, components;
+@supports (display: grid) { }
+@import "base.css";
+@font-face { }
+```
+
+### Modern Colors
+
+```wcss
+.element {
+  /* OKLCH - perceptually uniform */
+  color: oklch(70% 0.15 180);
+  
+  /* Color mixing */
+  background: color-mix(in oklch, blue 50%, red);
+  
+  /* Light/dark mode */
+  border: 1px solid light-dark(#ccc, #333);
+}
+```
+
+### Dark Mode
+
+```wcss
+/* Media query strategy */
+@media (prefers-color-scheme: dark) {
+  .card { background: #1a1a1a; }
+}
+
+/* Class strategy */
+.dark .card { background: #1a1a1a; }
+
+/* Attribute strategy */
+[data-theme="dark"] .card { background: #1a1a1a; }
+```
+
+### Vendor Prefixing
+
+Automatic prefixing for 30+ properties:
+
+```wcss
+.box {
+  transform: scale(1.2);
+  /* Generates: -webkit-transform, -moz-transform, -ms-transform, transform */
+  
+  user-select: none;
+  backdrop-filter: blur(10px);
+}
+```
 
 ### States
 
@@ -232,13 +340,22 @@ WCSS integrates with popular frameworks:
 
 ## Performance
 
-Benchmarked on Apple M3:
+Benchmarked on Apple M3 with 5000 utility classes:
 
-| Input | WCSS | LightningCSS | Tailwind CSS |
-|-------|------|--------------|--------------|
-| Small (1 rule) | 1μs | 94μs | N/A |
-| Large (5000 rules) | 7.7ms | 3.4ms | 43ms |
-| With Tree Shaking | 2.7ms | ❌ | 43ms |
+| Framework | Time | Output (100 used) | Speed vs WCSS |
+|-----------|------|------------------|---------------|
+| **WCSS (tree-shaking)** | **1.73ms** | **6.6KB** | **1.0x (baseline)** |
+| UnoCSS | 2.33ms | 3.42KB | 1.35x slower |
+| WCSS (full) | 4.95ms | 340KB | 2.86x slower |
+| Tailwind CSS | 16.75ms | 11.52KB | 9.68x slower |
+| Panda CSS | ~17ms | ~12KB | 9.83x slower |
+
+**Key metrics:**
+- 98% size reduction with tree-shaking (340KB → 6.6KB)
+- 1.35x faster than UnoCSS
+- 9.68x faster than Tailwind CSS
+
+See [BENCHMARK_RESULTS.md](https://github.com/huxeinsatoru/WCSS/blob/main/BENCHMARK_RESULTS.md) for detailed results.
 
 ## Requirements
 

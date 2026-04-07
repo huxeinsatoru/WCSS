@@ -45,6 +45,11 @@ impl TokenMerger {
             spacing: wcss_tokens.spacing.clone(),
             typography: wcss_tokens.typography.clone(),
             breakpoints: wcss_tokens.breakpoints.clone(),
+            shadows: wcss_tokens.shadows.clone(),
+            borders: wcss_tokens.borders.clone(),
+            radii: wcss_tokens.radii.clone(),
+            zindex: wcss_tokens.zindex.clone(),
+            opacity: wcss_tokens.opacity.clone(),
         };
 
         // Add W3C tokens to the appropriate categories
@@ -252,6 +257,11 @@ mod tests {
                 .collect(),
             typography: HashMap::new(),
             breakpoints: HashMap::new(),
+            shadows: HashMap::new(),
+            borders: HashMap::new(),
+            radii: HashMap::new(),
+            zindex: HashMap::new(),
+            opacity: HashMap::new(),
         }
     }
 

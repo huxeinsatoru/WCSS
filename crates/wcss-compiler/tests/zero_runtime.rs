@@ -50,13 +50,18 @@ fn rule_strategy() -> impl Strategy<Value = Rule> {
         .prop_map(|(class_name, declarations)| Rule {
             selector: Selector {
                 class_name,
+                kind: SelectorKind::Class,
                 combinators: vec![],
                 pseudo_elements: vec![],
+                pseudo_classes: vec![],
+                attributes: vec![],
                 span: Span::empty(),
             },
+            selectors: vec![],
             declarations,
             states: vec![],
             responsive: vec![],
+            nested_rules: vec![],
             span: Span::empty(),
         })
 }
@@ -65,6 +70,7 @@ fn rule_strategy() -> impl Strategy<Value = Rule> {
 fn stylesheet_strategy() -> impl Strategy<Value = StyleSheet> {
     prop::collection::vec(rule_strategy(), 1..=20).prop_map(|rules| StyleSheet {
         rules,
+        at_rules: vec![],
         span: Span::empty(),
     })
 }

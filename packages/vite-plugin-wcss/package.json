@@ -1,22 +1,43 @@
 {
   "name": "vite-plugin-wcss",
-  "version": "0.1.0",
-  "description": "Vite plugin for WCSS framework",
+  "version": "0.2.0",
+  "type": "module",
+  "description": "Vite plugin for WCSS (Web Compiler Style Sheets) - compile WCSS to CSS with WebAssembly. Works in cloud environments like Lovable, StackBlitz, and CodeSandbox.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
   "scripts": {
-    "build": "tsc",
+    "build": "tsc && cp src/wcss.d.ts dist/wcss.d.ts",
     "dev": "tsc --watch",
     "test": "jest"
   },
   "keywords": [
     "wcss",
     "css",
+    "compiler",
     "vite",
-    "plugin"
+    "vite-plugin",
+    "wasm",
+    "webassembly",
+    "build-tool",
+    "lovable",
+    "stackblitz",
+    "codesandbox",
+    "cloud-ide"
   ],
-  "author": "",
+  "author": "Huxeinsatoru",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/huxeinsatoru/WCSS.git",
+    "directory": "packages/vite-plugin-wcss"
+  },
+  "homepage": "https://github.com/huxeinsatoru/WCSS#readme",
+  "bugs": {
+    "url": "https://github.com/huxeinsatoru/WCSS/issues"
+  },
   "peerDependencies": {
     "vite": "^4.0.0 || ^5.0.0"
   },
@@ -29,6 +50,6 @@
     "ts-jest": "^29.1.1"
   },
   "dependencies": {
-    "wcss-compiler": "^0.1.0"
+    "@wcss/wasm": "^0.1.0"
   }
 }

@@ -96,8 +96,13 @@ fn rule_strategy() -> impl Strategy<Value = Rule> {
                 class_name,
                 combinators: vec![],
                 pseudo_elements: vec![],
+                kind: SelectorKind::Class,
+                pseudo_classes: vec![],
+                attributes: vec![],
                 span: Span::empty(),
             },
+            selectors: vec![],
+            nested_rules: vec![],
             declarations,
             states,
             responsive,
@@ -109,6 +114,7 @@ fn rule_strategy() -> impl Strategy<Value = Rule> {
 fn stylesheet_strategy() -> impl Strategy<Value = StyleSheet> {
     prop::collection::vec(rule_strategy(), 1..=10).prop_map(|rules| StyleSheet {
         rules,
+        at_rules: vec![],
         span: Span::empty(),
     })
 }
@@ -324,12 +330,30 @@ proptest! {
                     let state_name = match modifier {
                         StateModifier::Hover => "hover",
                         StateModifier::Focus => "focus",
+                        StateModifier::FocusVisible => "focus-visible",
+                        StateModifier::FocusWithin => "focus-within",
                         StateModifier::Active => "active",
                         StateModifier::Visited => "visited",
                         StateModifier::Disabled => "disabled",
+                        StateModifier::Enabled => "enabled",
                         StateModifier::Checked => "checked",
+                        StateModifier::Indeterminate => "indeterminate",
+                        StateModifier::Required => "required",
+                        StateModifier::Optional => "optional",
+                        StateModifier::Valid => "valid",
+                        StateModifier::Invalid => "invalid",
+                        StateModifier::ReadOnly => "read-only",
+                        StateModifier::ReadWrite => "read-write",
+                        StateModifier::PlaceholderShown => "placeholder-shown",
+                        StateModifier::Default => "default",
                         StateModifier::FirstChild => "first-child",
                         StateModifier::LastChild => "last-child",
+                        StateModifier::OnlyChild => "only-child",
+                        StateModifier::FirstOfType => "first-of-type",
+                        StateModifier::LastOfType => "last-of-type",
+                        StateModifier::OnlyOfType => "only-of-type",
+                        StateModifier::Empty => "empty",
+                        StateModifier::Dark => "dark",
                         StateModifier::Custom(s) => s.as_str(),
                     };
                     prop_assert!(

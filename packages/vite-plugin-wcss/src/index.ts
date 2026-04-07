@@ -1,5 +1,4 @@
 import type { Plugin, HmrContext } from 'vite';
-import * as path from 'path';
 
 export interface WCSSPluginOptions {
   /**
@@ -59,26 +58,108 @@ export interface WCSSPluginOptions {
 }
 
 /**
+ * Result from WASM compiler (matches Rust CompileResult struct)
+ */
+interface CompileResult {
+  css: string;
+  js?: string;
+  source_map?: string;
+  errors: Array<{ message?: string; line?: number; column?: number; severity?: string }>;
+  warnings: Array<{ message?: string; line?: number; column?: number; severity?: string }>;
+  stats?: {
+    input_size: number;
+    output_size: number;
+    compile_time_us: number;
+    rules_processed: number;
+    rules_eliminated: number;
+  };
+}
+
+/**
  * Singleton WASM compiler instance
  */
 let wasmCompiler: any = null;
 
 /**
- * Load the WASM compiler module once and cache it.
+ * Promise to track WASM initialization (prevents concurrent initialization)
  */
-function getCompiler(): any {
+let wasmInitPromise: Promise<any> | null = null;
+
+/**
+ * Cache of last successful compilation results per file
+ * Used to preserve styles when HMR compilation fails
+ */
+const compilationCache = new Map<string, { code: string; map: any }>();
+
+/**
+ * Initialize WASM module dynamically from @wcss/wasm npm package.
+ * Uses singleton pattern with promise caching to ensure initialization happens only once.
+ * 
+ * @returns Promise that resolves to the WCSSCompiler instance
+ * @throws Error with descriptive message if initialization fails
+ */
+async function initWASM(): Promise<any> {
+  // Return cached instance if already initialized
   if (wasmCompiler) {
     return wasmCompiler;
   }
-  const wasmPath = path.resolve(__dirname, '../../../pkg/nodejs/wcss_wasm.js');
-  try {
-    wasmCompiler = require(wasmPath);
-  } catch (err: any) {
-    throw new Error(
-      `Failed to load WCSS WASM compiler from ${wasmPath}: ${err.message}`
-    );
+
+  // If initialization is in progress, wait for it
+  if (!wasmInitPromise) {
+    wasmInitPromise = (async () => {
+      try {
+        // Dynamic import of @wcss/wasm package from node_modules
+        const { WCSSCompiler } = await import('@wcss/wasm');
+        wasmCompiler = new WCSSCompiler();
+        return wasmCompiler;
+      } catch (error: any) {
+        // Clear the promise so retry is possible
+        wasmInitPromise = null;
+        
+        // Determine the likely cause of the error
+        const errorMessage = error?.message || String(error);
+        const isModuleNotFound = errorMessage.includes('Cannot find module') || 
+                                  errorMessage.includes('MODULE_NOT_FOUND');
+        const isWasmError = errorMessage.includes('WebAssembly') || 
+                           errorMessage.includes('wasm');
+        
+        // Build comprehensive error message with troubleshooting guidance
+        let troubleshootingSteps = 'Troubleshooting:\n';
+        
+        if (isModuleNotFound) {
+          troubleshootingSteps += 
+            `1. Install the WASM package: npm install @wcss/wasm\n` +
+            `2. If already installed, try reinstalling: npm install --force\n` +
+            `3. Clear node_modules and reinstall: rm -rf node_modules && npm install\n`;
+        } else if (isWasmError) {
+          troubleshootingSteps += 
+            `1. Verify your environment supports WebAssembly\n` +
+            `2. Check Node.js version (requires 16+): node --version\n` +
+            `3. Ensure your bundler supports WASM imports (Vite does by default)\n`;
+        } else {
+          troubleshootingSteps += 
+            `1. Ensure @wcss/wasm is installed: npm install @wcss/wasm\n` +
+            `2. Check that your bundler supports WASM imports (Vite does by default)\n` +
+            `3. Verify you're using a compatible Node.js version (16+)\n`;
+        }
+        
+        // Add cloud environment specific guidance
+        troubleshootingSteps += 
+          `\nCloud Environment Steps:\n` +
+          `- Lovable: Ensure dependencies are installed and the workspace has synced\n` +
+          `- StackBlitz: Wait for node_modules to fully install (check terminal output)\n` +
+          `- CodeSandbox: Refresh the browser if dependencies don't load initially\n` +
+          `- All platforms: Try restarting the dev server after installation\n` +
+          `\nIf the issue persists, check that @wcss/wasm is listed in package.json dependencies.`;
+        
+        throw new Error(
+          `Failed to initialize WCSS WASM compiler: ${errorMessage}\n\n${troubleshootingSteps}`
+        );
+      }
+    })();
   }
-  return wasmCompiler;
+
+  return wasmInitPromise;
 }
 
 /**
@@ -128,27 +209,37 @@ function buildConfigJson(options: WCSSPluginOptions): string {
     used_classes: usedClasses,
     content_paths: contentPaths,
     safelist,
-  };
-
-  // Only include tokens if at least one category is provided
-  const hasTokens =
-    tokens.colors || tokens.spacing || tokens.typography || tokens.breakpoints;
-  if (hasTokens) {
-    config.tokens = {
+    tokens: {
       colors: toLiteralTokens(tokens.colors) ?? {},
       spacing: toLiteralTokens(tokens.spacing) ?? {},
       typography: toLiteralTokens(tokens.typography) ?? {},
       breakpoints: toLiteralTokens(tokens.breakpoints) ?? {},
-    };
-  }
+    },
+  };
 
   return JSON.stringify(config);
 }
 
 /**
  * Format compiler errors/warnings for Vite's error overlay.
+ * 
+ * @param items - Array of diagnostic items (errors or warnings)
+ * @param label - Label to prefix each diagnostic (e.g., 'error' or 'warning')
+ * @returns Formatted multi-line string with line/column information
+ * 
+ * @example
+ * ```typescript
+ * const errors = [
+ *   { message: 'Undefined token', line: 5, column: 12, severity: 'error' },
+ *   { message: 'Invalid value', line: 8, severity: 'error' }
+ * ];
+ * const formatted = formatDiagnostics(errors, 'error');
+ * // Returns:
+ * //   error: Undefined token (5:12)
+ * //   error: Invalid value (8)
+ * ```
  */
-function formatDiagnostics(
+export function formatDiagnostics(
   items: Array<{ message?: string; line?: number; column?: number; severity?: string }>,
   label: string
 ): string {
@@ -164,14 +255,74 @@ function formatDiagnostics(
 }
 
 /**
- * Vite plugin for WCSS
+ * WCSS plugin factory function type.
+ * Creates a Vite plugin that transforms .wcss files to CSS.
+ * 
+ * @param options - Configuration options for the WCSS compiler
+ * @returns Vite plugin instance
+ * 
+ * @example
+ * ```typescript
+ * import { defineConfig } from 'vite';
+ * import wcss from 'vite-plugin-wcss';
+ * 
+ * export default defineConfig({
+ *   plugins: [
+ *     wcss({
+ *       minify: true,
+ *       sourceMaps: true,
+ *       treeShaking: true,
+ *       usedClasses: ['btn', 'card']
+ *     })
+ *   ]
+ * });
+ * ```
  */
-export function wcssPlugin(options: WCSSPluginOptions = {}): Plugin {
+export type WCSSPlugin = (options?: WCSSPluginOptions) => Plugin;
+
+/**
+ * Vite plugin for WCSS.
+ * Transforms .wcss files to CSS with support for design tokens, tree-shaking, and minification.
+ * 
+ * @param options - Configuration options for the WCSS compiler
+ * @returns Vite plugin instance
+ * 
+ * @example
+ * ```typescript
+ * import { defineConfig } from 'vite';
+ * import wcss from 'vite-plugin-wcss';
+ * 
+ * export default defineConfig({
+ *   plugins: [
+ *     wcss({
+ *       minify: true,
+ *       sourceMaps: true,
+ *       tokens: {
+ *         colors: { primary: '#007bff' }
+ *       }
+ *     })
+ *   ]
+ * });
+ * ```
+ */
+export const wcssPlugin: WCSSPlugin = (options: WCSSPluginOptions = {}): Plugin => {
   const resolvedOptions = { ...options };
+  let viteServer: any = null;
+  let isProduction = false;
 
   return {
     name: 'vite-plugin-wcss',
     enforce: 'pre',
+
+    configResolved(config) {
+      // Detect production mode to apply appropriate optimizations
+      isProduction = config.command === 'build' || config.mode === 'production';
+    },
+
+    configureServer(server) {
+      // Store reference to Vite dev server for HMR error handling
+      viteServer = server;
+    },
 
     async transform(code: string, id: string) {
       if (!id.endsWith('.wcss')) {
@@ -179,9 +330,21 @@ export function wcssPlugin(options: WCSSPluginOptions = {}): Plugin {
       }
 
       try {
-        const compiler = getCompiler();
-        const configJson = buildConfigJson(resolvedOptions);
-        const result = compiler.compile(code, configJson);
+        // Ensure WASM is initialized before first compilation
+        const compiler = await initWASM();
+        
+        // Apply production-specific configuration
+        // During production builds, ensure minification and tree-shaking are applied if enabled
+        const productionOptions = isProduction ? {
+          ...resolvedOptions,
+          // Ensure minification is applied in production if enabled
+          minify: resolvedOptions.minify ?? false,
+          // Ensure tree-shaking is applied in production if enabled
+          treeShaking: resolvedOptions.treeShaking ?? false,
+        } : resolvedOptions;
+        
+        const configJson = buildConfigJson(productionOptions);
+        const result: CompileResult = compiler.compile(code, configJson);
 
         // Surface warnings via Vite's warning mechanism
         if (result.warnings && result.warnings.length > 0) {
@@ -190,9 +353,42 @@ export function wcssPlugin(options: WCSSPluginOptions = {}): Plugin {
 
         // Surface errors
         if (result.errors && result.errors.length > 0) {
-          this.error(
-            `WCSS compilation errors:\n${formatDiagnostics(result.errors, 'error')}`
-          );
+          const errorMessage = `WCSS compilation errors:\n${formatDiagnostics(result.errors, 'error')}`;
+          
+          // During HMR, send error to client without throwing
+          // This preserves previous styles and shows error overlay
+          if (viteServer) {
+            viteServer.ws.send({
+              type: 'error',
+              err: {
+                message: errorMessage,
+                stack: '',
+                id,
+                frame: formatDiagnostics(result.errors, 'error'),
+                plugin: 'vite-plugin-wcss',
+                loc: result.errors[0]?.line ? {
+                  file: id,
+                  line: result.errors[0].line,
+                  column: result.errors[0].column || 0,
+                } : undefined,
+              },
+            });
+            
+            // Return cached result to preserve previous styles
+            const cached = compilationCache.get(id);
+            if (cached) {
+              return cached;
+            }
+            
+            // If no cache, return empty CSS to avoid breaking the page
+            return {
+              code: 'export default "";',
+              map: null,
+            };
+          }
+          
+          // During build, throw error normally
+          this.error(errorMessage);
         }
 
         // Build the exported module code
@@ -206,22 +402,55 @@ export function wcssPlugin(options: WCSSPluginOptions = {}): Plugin {
 
         // Determine source map to return
         let map: any = null;
-        if (resolvedOptions.sourceMaps !== false && result.sourceMap) {
-          // result.sourceMap is a JSON string or object from the compiler
+        if (resolvedOptions.sourceMaps !== false && result.source_map) {
+          // result.source_map is a JSON string or object from the compiler
           map =
-            typeof result.sourceMap === 'string'
-              ? JSON.parse(result.sourceMap)
-              : result.sourceMap;
+            typeof result.source_map === 'string'
+              ? JSON.parse(result.source_map)
+              : result.source_map;
         }
 
-        return {
+        const transformResult = {
           code: moduleCode,
           map,
         };
+
+        // Cache successful compilation for HMR error recovery
+        compilationCache.set(id, transformResult);
+
+        return transformResult;
       } catch (error: any) {
         const message = error?.message ?? String(error);
+        const errorMessage = `WCSS compilation failed: ${message}`;
+        
+        // During HMR, send error to client without throwing
+        if (viteServer) {
+          viteServer.ws.send({
+            type: 'error',
+            err: {
+              message: errorMessage,
+              stack: error?.stack || '',
+              id,
+              plugin: 'vite-plugin-wcss',
+            },
+          });
+          
+          // Return cached result to preserve previous styles
+          const cached = compilationCache.get(id);
+          if (cached) {
+            return cached;
+          }
+          
+          // If no cache, return empty CSS to avoid breaking the page
+          return {
+            code: 'export default "";',
+            map: null,
+          };
+        }
+        
+        // During build, throw error normally
         this.error({
-          message: `WCSS compilation failed: ${message}`,
+          message: errorMessage,
           id,
         });
       }
@@ -229,14 +458,18 @@ export function wcssPlugin(options: WCSSPluginOptions = {}): Plugin {
 
     handleHotUpdate(ctx: HmrContext) {
       if (ctx.file.endsWith('.wcss')) {
-        // Trigger full reload for WCSS files
-        ctx.server.ws.send({
-          type: 'full-reload',
-        });
-        return [];
+        // For .wcss files, we want to trigger CSS-only HMR without full page reload
+        // Return the affected modules so Vite can handle the HMR update
+        // This allows styles to update without losing application state
+        
+        // ctx.modules contains all modules that import this .wcss file
+        // By returning them, Vite will invalidate and re-transform these modules
+        // Since .wcss files are transformed to CSS exports, Vite's built-in CSS HMR
+        // will apply the style changes without a full page reload
+        return ctx.modules;
       }
     },
   };
-}
+};
 
 export default wcssPlugin;

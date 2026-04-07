@@ -141,13 +141,18 @@ fn rule_strategy() -> impl Strategy<Value = Rule> {
     ).prop_map(|(class_name, declarations, states, responsive)| Rule {
         selector: Selector {
             class_name,
+            kind: SelectorKind::Class,
             combinators: vec![],
             pseudo_elements: vec![],
+            pseudo_classes: vec![],
+            attributes: vec![],
             span: Span::empty(),
         },
+        selectors: vec![],
         declarations,
         states,
         responsive,
+        nested_rules: vec![],
         span: Span::empty(),
     })
 }
@@ -156,6 +161,7 @@ fn rule_strategy() -> impl Strategy<Value = Rule> {
 fn stylesheet_strategy() -> impl Strategy<Value = StyleSheet> {
     prop::collection::vec(rule_strategy(), 1..=20).prop_map(|rules| StyleSheet {
         rules,
+        at_rules: vec![],
         span: Span::empty(),
     })
 }
@@ -385,21 +391,27 @@ proptest! {
             rules: vec![Rule {
                 selector: Selector {
                     class_name: class_name.clone(),
+                    kind: SelectorKind::Class,
                     combinators: vec![],
                     pseudo_elements: vec![],
+                    pseudo_classes: vec![],
+                    attributes: vec![],
                     span: Span::empty(),
                 },
+                selectors: vec![],
                 declarations: vec![],
                 states: state_blocks.clone(),
                 responsive: vec![],
+                nested_rules: vec![],
                 span: Span::empty(),
             }],
+            at_rules: vec![],
             span: Span::empty(),
         };
-        
+
         let config = CompilerConfig::default();
         let css = generate_css(&stylesheet, &config);
-        
+
         // Verify each state modifier generates a pseudo-class
         for state_block in &state_blocks {
             for modifier in &state_block.modifiers {
@@ -421,21 +433,27 @@ proptest! {
             rules: vec![Rule {
                 selector: Selector {
                     class_name: class_name.clone(),
+                    kind: SelectorKind::Class,
                     combinators: vec![],
                     pseudo_elements: vec![],
+                    pseudo_classes: vec![],
+                    attributes: vec![],
                     span: Span::empty(),
                 },
+                selectors: vec![],
                 declarations: vec![],
                 states: vec![],
                 responsive: responsive_blocks.clone(),
+                nested_rules: vec![],
                 span: Span::empty(),
             }],
+            at_rules: vec![],
             span: Span::empty(),
         };
-        
+
         let config = CompilerConfig::default();
         let css = generate_css(&stylesheet, &config);
-        
+
         // Verify media queries are generated
         if !responsive_blocks.is_empty() {
             prop_assert!(css.contains("@media"),

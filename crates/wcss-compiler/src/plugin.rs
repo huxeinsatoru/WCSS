@@ -173,7 +173,7 @@ pub struct StripCommentsPlugin;
 impl Plugin for StripCommentsPlugin {
     fn name(&self) -> &str { "strip-comments" }
 
-    fn before_parse(&self, source: &mut String) -> Result<(), PluginError> {
+    fn before_parse(&self, _source: &mut String) -> Result<(), PluginError> {
         // Comments are already stripped by the parser, but this handles edge cases
         Ok(())
     }
@@ -185,7 +185,7 @@ pub struct TailwindCompatPlugin;
 impl Plugin for TailwindCompatPlugin {
     fn name(&self) -> &str { "tailwind-compat" }
 
-    fn before_parse(&self, source: &mut String) -> Result<(), PluginError> {
+    fn before_parse(&self, _source: &mut String) -> Result<(), PluginError> {
         // Transform @apply directives to standard declarations
         // This is a placeholder for Tailwind compatibility
         Ok(())

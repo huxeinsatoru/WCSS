@@ -51,10 +51,14 @@ fn rule_with_declaration(property: &str, value: Value) -> Rule {
     Rule {
         selector: Selector {
             class_name: "test".to_string(),
+            kind: SelectorKind::Class,
             combinators: vec![],
             pseudo_elements: vec![],
+            pseudo_classes: vec![],
+            attributes: vec![],
             span: Span::empty(),
         },
+        selectors: vec![],
         declarations: vec![Declaration {
             property: Property::Standard(property.to_string()),
             value,
@@ -63,6 +67,7 @@ fn rule_with_declaration(property: &str, value: Value) -> Rule {
         }],
         states: vec![],
         responsive: vec![],
+        nested_rules: vec![],
         span: Span::empty(),
     }
 }
@@ -84,9 +89,10 @@ fn test_undefined_color_token() {
                 span: Span::new(10, 20, 1, 10),
             }),
         )],
+        at_rules: vec![],
         span: Span::empty(),
     };
-    
+
     let errors = validate(&stylesheet, &config);
     
     assert_eq!(errors.len(), 1, "Should have exactly one error");
@@ -120,9 +126,10 @@ fn test_undefined_spacing_token() {
                 span: Span::new(15, 25, 2, 5),
             }),
         )],
+        at_rules: vec![],
         span: Span::empty(),
     };
-    
+
     let errors = validate(&stylesheet, &config);
     
     assert_eq!(errors.len(), 1);
@@ -153,9 +160,10 @@ fn test_undefined_typography_token() {
                 span: Span::new(20, 30, 3, 8),
             }),
         )],
+        at_rules: vec![],
         span: Span::empty(),
     };
-    
+
     let errors = validate(&stylesheet, &config);
     
     assert_eq!(errors.len(), 1);
@@ -176,9 +184,10 @@ fn test_undefined_token_with_empty_config() {
                 span: Span::new(5, 15, 1, 5),
             }),
         )],
+        at_rules: vec![],
         span: Span::empty(),
     };
-    
+
     let errors = validate(&stylesheet, &config);
     
     assert_eq!(errors.len(), 1);
@@ -208,9 +217,10 @@ fn test_multiple_undefined_tokens() {
                 }),
             ),
         ],
+        at_rules: vec![],
         span: Span::empty(),
     };
-    
+
     let errors = validate(&stylesheet, &config);
     
     assert_eq!(errors.len(), 2, "Should report both undefined tokens");
@@ -226,10 +236,14 @@ fn test_undefined_token_in_value_list() {
         rules: vec![Rule {
             selector: Selector {
                 class_name: "test".to_string(),
+                kind: SelectorKind::Class,
                 combinators: vec![],
                 pseudo_elements: vec![],
+                pseudo_classes: vec![],
+                attributes: vec![],
                 span: Span::empty(),
             },
+            selectors: vec![],
             declarations: vec![Declaration {
                 property: Property::Standard("border".to_string()),
                 value: Value::List(vec![
@@ -246,11 +260,13 @@ fn test_undefined_token_in_value_list() {
             }],
             states: vec![],
             responsive: vec![],
+            nested_rules: vec![],
             span: Span::empty(),
         }],
+        at_rules: vec![],
         span: Span::empty(),
     };
-    
+
     let errors = validate(&stylesheet, &config);
     
     assert_eq!(errors.len(), 1);
@@ -274,9 +290,10 @@ fn test_defined_token_no_error() {
                 span: Span::new(10, 20, 1, 10),
             }),
         )],
+        at_rules: vec![],
         span: Span::empty(),
     };
-    
+
     let errors = validate(&stylesheet, &config);
     
     assert_eq!(errors.len(), 0, "Defined tokens should not produce errors");
@@ -297,10 +314,14 @@ fn test_undefined_breakpoint() {
         rules: vec![Rule {
             selector: Selector {
                 class_name: "test".to_string(),
+                kind: SelectorKind::Class,
                 combinators: vec![],
                 pseudo_elements: vec![],
+                pseudo_classes: vec![],
+                attributes: vec![],
                 span: Span::empty(),
             },
+            selectors: vec![],
             declarations: vec![],
             states: vec![],
             responsive: vec![ResponsiveBlock {
@@ -313,11 +334,13 @@ fn test_undefined_breakpoint() {
                 }],
                 span: Span::new(30, 50, 3, 5),
             }],
+            nested_rules: vec![],
             span: Span::empty(),
         }],
+        at_rules: vec![],
         span: Span::empty(),
     };
-    
+
     let errors = validate(&stylesheet, &config);
     
     assert_eq!(errors.len(), 1);
@@ -340,10 +363,14 @@ fn test_undefined_breakpoint_with_empty_config() {
         rules: vec![Rule {
             selector: Selector {
                 class_name: "test".to_string(),
+                kind: SelectorKind::Class,
                 combinators: vec![],
                 pseudo_elements: vec![],
+                pseudo_classes: vec![],
+                attributes: vec![],
                 span: Span::empty(),
             },
+            selectors: vec![],
             declarations: vec![],
             states: vec![],
             responsive: vec![ResponsiveBlock {
@@ -351,13 +378,15 @@ fn test_undefined_breakpoint_with_empty_config() {
                 declarations: vec![],
                 span: Span::new(20, 30, 2, 5),
             }],
+            nested_rules: vec![],
             span: Span::empty(),
         }],
+        at_rules: vec![],
         span: Span::empty(),
     };
-    
+
     let errors = validate(&stylesheet, &config);
-    
+
     assert_eq!(errors.len(), 1);
     assert_eq!(errors[0].kind, ErrorKind::ValidationError);
     assert!(errors[0].message.contains("md"));
@@ -371,10 +400,14 @@ fn test_multiple_undefined_breakpoints() {
         rules: vec![Rule {
             selector: Selector {
                 class_name: "test".to_string(),
+                kind: SelectorKind::Class,
                 combinators: vec![],
                 pseudo_elements: vec![],
+                pseudo_classes: vec![],
+                attributes: vec![],
                 span: Span::empty(),
             },
+            selectors: vec![],
             declarations: vec![],
             states: vec![],
             responsive: vec![
@@ -389,11 +422,13 @@ fn test_multiple_undefined_breakpoints() {
                     span: Span::new(40, 50, 4, 5),
                 },
             ],
+            nested_rules: vec![],
             span: Span::empty(),
         }],
+        at_rules: vec![],
         span: Span::empty(),
     };
-    
+
     let errors = validate(&stylesheet, &config);
     
     assert_eq!(errors.len(), 2, "Should report both undefined breakpoints");
@@ -413,10 +448,14 @@ fn test_defined_breakpoint_no_error() {
         rules: vec![Rule {
             selector: Selector {
                 class_name: "test".to_string(),
+                kind: SelectorKind::Class,
                 combinators: vec![],
                 pseudo_elements: vec![],
+                pseudo_classes: vec![],
+                attributes: vec![],
                 span: Span::empty(),
             },
+            selectors: vec![],
             declarations: vec![],
             states: vec![],
             responsive: vec![ResponsiveBlock {
@@ -424,13 +463,15 @@ fn test_defined_breakpoint_no_error() {
                 declarations: vec![],
                 span: Span::new(20, 30, 2, 5),
             }],
+            nested_rules: vec![],
             span: Span::empty(),
         }],
+        at_rules: vec![],
         span: Span::empty(),
     };
-    
+
     let errors = validate(&stylesheet, &config);
-    
+
     assert_eq!(errors.len(), 0, "Defined breakpoints should not produce errors");
 }
 
@@ -445,10 +486,14 @@ fn test_breakpoint_error_includes_suggestions() {
         rules: vec![Rule {
             selector: Selector {
                 class_name: "test".to_string(),
+                kind: SelectorKind::Class,
                 combinators: vec![],
                 pseudo_elements: vec![],
+                pseudo_classes: vec![],
+                attributes: vec![],
                 span: Span::empty(),
             },
+            selectors: vec![],
             declarations: vec![],
             states: vec![],
             responsive: vec![ResponsiveBlock {
@@ -456,13 +501,15 @@ fn test_breakpoint_error_includes_suggestions() {
                 declarations: vec![],
                 span: Span::new(20, 30, 2, 5),
             }],
+            nested_rules: vec![],
             span: Span::empty(),
         }],
+        at_rules: vec![],
         span: Span::empty(),
     };
-    
+
     let errors = validate(&stylesheet, &config);
-    
+
     assert_eq!(errors.len(), 1);
     assert!(
         errors[0].suggestion.is_some(),
@@ -487,10 +534,14 @@ fn test_undefined_token_in_state_block() {
         rules: vec![Rule {
             selector: Selector {
                 class_name: "button".to_string(),
+                kind: SelectorKind::Class,
                 combinators: vec![],
                 pseudo_elements: vec![],
+                pseudo_classes: vec![],
+                attributes: vec![],
                 span: Span::empty(),
             },
+            selectors: vec![],
             declarations: vec![],
             states: vec![StateBlock {
                 modifiers: vec![StateModifier::Hover],
@@ -507,11 +558,13 @@ fn test_undefined_token_in_state_block() {
                 span: Span::empty(),
             }],
             responsive: vec![],
+            nested_rules: vec![],
             span: Span::empty(),
         }],
+        at_rules: vec![],
         span: Span::empty(),
     };
-    
+
     let errors = validate(&stylesheet, &config);
     
     assert_eq!(errors.len(), 1);
@@ -546,10 +599,14 @@ fn test_undefined_token_in_responsive_block() {
         rules: vec![Rule {
             selector: Selector {
                 class_name: "test".to_string(),
+                kind: SelectorKind::Class,
                 combinators: vec![],
                 pseudo_elements: vec![],
+                pseudo_classes: vec![],
+                attributes: vec![],
                 span: Span::empty(),
             },
+            selectors: vec![],
             declarations: vec![],
             states: vec![],
             responsive: vec![ResponsiveBlock {
@@ -566,11 +623,13 @@ fn test_undefined_token_in_responsive_block() {
                 }],
                 span: Span::new(30, 60, 4, 5),
             }],
+            nested_rules: vec![],
             span: Span::empty(),
         }],
+        at_rules: vec![],
         span: Span::empty(),
     };
-    
+
     let errors = validate(&stylesheet, &config);
     
     assert_eq!(errors.len(), 1);
@@ -590,10 +649,14 @@ fn test_combined_undefined_token_and_breakpoint_errors() {
         rules: vec![Rule {
             selector: Selector {
                 class_name: "test".to_string(),
+                kind: SelectorKind::Class,
                 combinators: vec![],
                 pseudo_elements: vec![],
+                pseudo_classes: vec![],
+                attributes: vec![],
                 span: Span::empty(),
             },
+            selectors: vec![],
             declarations: vec![Declaration {
                 property: Property::Standard("color".to_string()),
                 value: Value::Token(TokenRef {
@@ -610,11 +673,13 @@ fn test_combined_undefined_token_and_breakpoint_errors() {
                 declarations: vec![],
                 span: Span::new(30, 40, 3, 5),
             }],
+            nested_rules: vec![],
             span: Span::empty(),
         }],
+        at_rules: vec![],
         span: Span::empty(),
     };
-    
+
     let errors = validate(&stylesheet, &config);
     
     assert_eq!(errors.len(), 2, "Should report both token and breakpoint errors");
@@ -641,9 +706,10 @@ fn test_error_span_information() {
                 span: span.clone(),
             }),
         )],
+        at_rules: vec![],
         span: Span::empty(),
     };
-    
+
     let errors = validate(&stylesheet, &config);
     
     assert_eq!(errors.len(), 1);

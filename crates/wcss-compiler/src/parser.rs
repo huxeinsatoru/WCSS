@@ -1,6 +1,11 @@
 use crate::ast::*;
 use crate::error::CompilerError;
 
+/// Macro placeholder for the enum — Rust doesn't need this but we use it for doc clarity.
+macro_rules! enum_result_type {
+    () => {};
+}
+
 /// Parse WCSS source code into a StyleSheet AST.
 pub fn parse(source: &str) -> Result<StyleSheet, Vec<CompilerError>> {
     let mut parser = Parser::new(source);
@@ -1577,11 +1582,6 @@ enum AtRuleOrRule {
     Rule(Rule),
 }
 
-/// Macro placeholder for the enum — Rust doesn't need this but we use it for doc clarity.
-macro_rules! enum_result_type {
-    () => {};
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1771,17 +1771,27 @@ mod tests {
 
     #[test]
     fn test_parse_container() {
+        // Test basic @container parsing with WCSS syntax
         let source = r#"@container sidebar (min-width: 700px) {
-            .card { font-size: 2em; }
-        }"#;
+    .card { 
+        color: blue;
+    }
+}"#;
         let result = parse(source);
-        assert!(result.is_ok());
-        match &result.unwrap().at_rules[0] {
+        if let Err(e) = &result {
+            eprintln!("Parse error: {:?}", e);
+        }
+        assert!(result.is_ok(), "Failed to parse container: {:?}", result.err());
+        let stylesheet = result.unwrap();
+        assert!(!stylesheet.at_rules.is_empty(), "No at-rules found");
+        match &stylesheet.at_rules[0] {
             AtRule::Container(c) => {
                 assert_eq!(c.name, Some("sidebar".to_string()));
                 assert_eq!(c.condition, "min-width: 700px");
+                assert_eq!(c.rules.len(), 1);
+                assert_eq!(c.rules[0].selector.class_name, "card");
             }
-            _ => panic!("Expected container"),
+            _ => panic!("Expected container, got: {:?}", stylesheet.at_rules[0]),
         }
     }
 

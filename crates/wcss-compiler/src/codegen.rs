@@ -878,6 +878,10 @@ fn write_pseudo(output: &mut String, modifier: &StateModifier) {
             output.push(':');
             output.push_str(s);
         }
+        _ => {
+            output.push(':');
+            output.push_str(&format!("{:?}", modifier).to_lowercase());
+        }
     }
 }
 

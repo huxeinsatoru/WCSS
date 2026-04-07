@@ -125,13 +125,18 @@ fn rule_strategy() -> impl Strategy<Value = Rule> {
         .prop_map(|(class_name, declarations, states, responsive)| Rule {
             selector: Selector {
                 class_name,
+                kind: SelectorKind::Class,
                 combinators: vec![],
                 pseudo_elements: vec![],
+                pseudo_classes: vec![],
+                attributes: vec![],
                 span: Span::empty(),
             },
+            selectors: vec![],
             declarations,
             states,
             responsive,
+            nested_rules: vec![],
             span: Span::empty(),
         })
 }
@@ -140,6 +145,7 @@ fn rule_strategy() -> impl Strategy<Value = Rule> {
 fn stylesheet_strategy() -> impl Strategy<Value = StyleSheet> {
     prop::collection::vec(rule_strategy(), 1..=10).prop_map(|rules| StyleSheet {
         rules,
+        at_rules: vec![],
         span: Span::empty(),
     })
 }
@@ -194,10 +200,14 @@ fn normalize_ast(stylesheet: &StyleSheet) -> StyleSheet {
             .map(|rule| Rule {
                 selector: Selector {
                     class_name: rule.selector.class_name.clone(),
+                    kind: rule.selector.kind.clone(),
                     combinators: rule.selector.combinators.clone(),
                     pseudo_elements: rule.selector.pseudo_elements.clone(),
+                    pseudo_classes: rule.selector.pseudo_classes.clone(),
+                    attributes: rule.selector.attributes.clone(),
                     span: Span::empty(),
                 },
+                selectors: rule.selectors.clone(),
                 declarations: rule
                     .declarations
                     .iter()
@@ -244,9 +254,11 @@ fn normalize_ast(stylesheet: &StyleSheet) -> StyleSheet {
                         span: Span::empty(),
                     })
                     .collect(),
+                nested_rules: vec![],
                 span: Span::empty(),
             })
             .collect(),
+        at_rules: vec![],
         span: Span::empty(),
     }
 }

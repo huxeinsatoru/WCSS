@@ -91,13 +91,18 @@ fn rule_with_states_strategy() -> impl Strategy<Value = Rule> {
     ).prop_map(|(class_name, declarations, states)| Rule {
         selector: Selector {
             class_name,
+            kind: SelectorKind::Class,
             combinators: vec![],
             pseudo_elements: vec![],
+            pseudo_classes: vec![],
+            attributes: vec![],
             span: Span::empty(),
         },
+        selectors: vec![],
         declarations,
         states,
         responsive: vec![],
+        nested_rules: vec![],
         span: Span::empty(),
     })
 }
@@ -164,12 +169,13 @@ proptest! {
     fn prop_state_selectors_generate_pseudo_classes(rule in rule_with_states_strategy()) {
         let stylesheet = StyleSheet {
             rules: vec![rule.clone()],
+            at_rules: vec![],
             span: Span::empty(),
         };
-        
+
         let config = CompilerConfig::default();
         let css = generate_css(&stylesheet, &config);
-        
+
         // Verify each state block generates a pseudo-class selector
         for state_block in &rule.states {
             for modifier in &state_block.modifiers {
@@ -206,24 +212,30 @@ proptest! {
         let rule = Rule {
             selector: Selector {
                 class_name: class_name.clone(),
+                kind: SelectorKind::Class,
                 combinators: vec![],
                 pseudo_elements: vec![],
+                pseudo_classes: vec![],
+                attributes: vec![],
                 span: Span::empty(),
             },
+            selectors: vec![],
             declarations: vec![],
             states: vec![state_block],
             responsive: vec![],
+            nested_rules: vec![],
             span: Span::empty(),
         };
-        
+
         let stylesheet = StyleSheet {
             rules: vec![rule],
+            at_rules: vec![],
             span: Span::empty(),
         };
-        
+
         let config = CompilerConfig::default();
         let css = generate_css(&stylesheet, &config);
-        
+
         // Verify all modifiers appear in the CSS
         for modifier in &modifiers {
             let pseudo = modifier.as_css_pseudo();
@@ -260,24 +272,30 @@ proptest! {
         let rule = Rule {
             selector: Selector {
                 class_name: class_name.clone(),
+                kind: SelectorKind::Class,
                 combinators: vec![],
                 pseudo_elements: vec![],
+                pseudo_classes: vec![],
+                attributes: vec![],
                 span: Span::empty(),
             },
+            selectors: vec![],
             declarations: vec![],
             states: vec![state_block],
             responsive: vec![],
+            nested_rules: vec![],
             span: Span::empty(),
         };
-        
+
         let stylesheet = StyleSheet {
             rules: vec![rule],
+            at_rules: vec![],
             span: Span::empty(),
         };
-        
+
         let config = CompilerConfig::default();
         let css = generate_css(&stylesheet, &config);
-        
+
         // Verify the correct pseudo-class is generated
         let expected_pseudo = modifier.as_css_pseudo();
         let expected_selector = format!(".{}{}", class_name, expected_pseudo);
@@ -313,24 +331,30 @@ proptest! {
         let rule = Rule {
             selector: Selector {
                 class_name: class_name.clone(),
+                kind: SelectorKind::Class,
                 combinators: vec![],
                 pseudo_elements: vec![],
+                pseudo_classes: vec![],
+                attributes: vec![],
                 span: Span::empty(),
             },
+            selectors: vec![],
             declarations: vec![],
             states: state_blocks.clone(),
             responsive: vec![],
+            nested_rules: vec![],
             span: Span::empty(),
         };
-        
+
         let stylesheet = StyleSheet {
             rules: vec![rule],
+            at_rules: vec![],
             span: Span::empty(),
         };
-        
+
         let config = CompilerConfig::default();
         let css = generate_css(&stylesheet, &config);
-        
+
         // Verify all state block declarations appear in CSS
         for state_block in &state_blocks {
             for declaration in &state_block.declarations {
@@ -355,18 +379,24 @@ proptest! {
         let rule = Rule {
             selector: Selector {
                 class_name: class_name.clone(),
+                kind: SelectorKind::Class,
                 combinators: vec![],
                 pseudo_elements: vec![],
+                pseudo_classes: vec![],
+                attributes: vec![],
                 span: Span::empty(),
             },
+            selectors: vec![],
             declarations: vec![],
             states: state_blocks.clone(),
             responsive: vec![],
+            nested_rules: vec![],
             span: Span::empty(),
         };
         
         let stylesheet = StyleSheet {
             rules: vec![rule],
+            at_rules: vec![],
             span: Span::empty(),
         };
         
@@ -406,18 +436,24 @@ proptest! {
         let rule = Rule {
             selector: Selector {
                 class_name: class_name.clone(),
+                kind: SelectorKind::Class,
                 combinators: vec![],
                 pseudo_elements: vec![],
+                pseudo_classes: vec![],
+                attributes: vec![],
                 span: Span::empty(),
             },
+            selectors: vec![],
             declarations: base_declarations.clone(),
             states: state_blocks.clone(),
             responsive: vec![],
+            nested_rules: vec![],
             span: Span::empty(),
         };
         
         let stylesheet = StyleSheet {
             rules: vec![rule],
+            at_rules: vec![],
             span: Span::empty(),
         };
         
@@ -478,18 +514,24 @@ proptest! {
         let rule = Rule {
             selector: Selector {
                 class_name: class_name.clone(),
+                kind: SelectorKind::Class,
                 combinators: vec![],
                 pseudo_elements: vec![],
+                pseudo_classes: vec![],
+                attributes: vec![],
                 span: Span::empty(),
             },
+            selectors: vec![],
             declarations: vec![],
             states: state_blocks,
             responsive: vec![],
+            nested_rules: vec![],
             span: Span::empty(),
         };
         
         let stylesheet = StyleSheet {
             rules: vec![rule],
+            at_rules: vec![],
             span: Span::empty(),
         };
         

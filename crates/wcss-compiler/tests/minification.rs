@@ -71,13 +71,18 @@ fn rule_strategy() -> impl Strategy<Value = Rule> {
         .prop_map(|(class_name, declarations)| Rule {
             selector: Selector {
                 class_name,
+                kind: SelectorKind::Class,
                 combinators: vec![],
                 pseudo_elements: vec![],
+                pseudo_classes: vec![],
+                attributes: vec![],
                 span: Span::empty(),
             },
+            selectors: vec![],
             declarations,
             states: vec![],
             responsive: vec![],
+            nested_rules: vec![],
             span: Span::empty(),
         })
 }
@@ -86,6 +91,7 @@ fn rule_strategy() -> impl Strategy<Value = Rule> {
 fn stylesheet_strategy() -> impl Strategy<Value = StyleSheet> {
     prop::collection::vec(rule_strategy(), 5..=30).prop_map(|rules| StyleSheet {
         rules,
+        at_rules: vec![],
         span: Span::empty(),
     })
 }
@@ -263,10 +269,14 @@ proptest! {
                 Rule {
                     selector: Selector {
                         class_name: class_name.clone(),
+                        kind: SelectorKind::Class,
                         combinators: vec![],
                         pseudo_elements: vec![],
+                        pseudo_classes: vec![],
+                        attributes: vec![],
                         span: Span::empty(),
                     },
+                    selectors: vec![],
                     declarations: vec![
                         Declaration {
                             property: Property::Standard("color".to_string()),
@@ -283,9 +293,11 @@ proptest! {
                     ],
                     states: vec![],
                     responsive: vec![],
+                    nested_rules: vec![],
                     span: Span::empty(),
                 },
             ],
+            at_rules: vec![],
             span: Span::empty(),
         };
         

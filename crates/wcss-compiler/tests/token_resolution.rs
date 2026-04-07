@@ -61,6 +61,11 @@ fn design_tokens_strategy() -> impl Strategy<Value = (DesignTokens, HashMap<Toke
             spacing: spacing.into_iter().map(|(k, v)| (k, TokenValue::Literal(v))).collect(),
             typography: typography.into_iter().map(|(k, v)| (k, TokenValue::Literal(v))).collect(),
             breakpoints: breakpoints.into_iter().map(|(k, v)| (k, TokenValue::Literal(v))).collect(),
+            shadows: HashMap::new(),
+            borders: HashMap::new(),
+            radii: HashMap::new(),
+            zindex: HashMap::new(),
+            opacity: HashMap::new(),
         };
         
         (tokens, defined_names)

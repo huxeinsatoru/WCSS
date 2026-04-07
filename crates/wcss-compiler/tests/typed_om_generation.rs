@@ -50,13 +50,18 @@ fn typed_om_rule_strategy() -> impl Strategy<Value = Rule> {
         .prop_map(|(class_name, declarations)| Rule {
             selector: Selector {
                 class_name,
+                kind: SelectorKind::Class,
                 combinators: vec![],
                 pseudo_elements: vec![],
+                pseudo_classes: vec![],
+                attributes: vec![],
                 span: Span::empty(),
             },
+            selectors: vec![],
             declarations,
             states: vec![],
             responsive: vec![],
+            nested_rules: vec![],
             span: Span::empty(),
         })
 }
@@ -65,6 +70,7 @@ fn typed_om_rule_strategy() -> impl Strategy<Value = Rule> {
 fn typed_om_stylesheet_strategy() -> impl Strategy<Value = StyleSheet> {
     prop::collection::vec(typed_om_rule_strategy(), 1..=10).prop_map(|rules| StyleSheet {
         rules,
+        at_rules: vec![],
         span: Span::empty(),
     })
 }
@@ -222,10 +228,14 @@ proptest! {
             rules: vec![Rule {
                 selector: Selector {
                     class_name: "test".to_string(),
+                    kind: SelectorKind::Class,
                     combinators: vec![],
                     pseudo_elements: vec![],
+                    pseudo_classes: vec![],
+                    attributes: vec![],
                     span: Span::empty(),
                 },
+                selectors: vec![],
                 declarations: vec![Declaration {
                     property: Property::Standard("width".to_string()),
                     value: Value::Number(value, Some(unit.clone())),
@@ -234,8 +244,10 @@ proptest! {
                 }],
                 states: vec![],
                 responsive: vec![],
+                nested_rules: vec![],
                 span: Span::empty(),
             }],
+            at_rules: vec![],
             span: Span::empty(),
         };
 
@@ -269,10 +281,14 @@ proptest! {
             rules: vec![Rule {
                 selector: Selector {
                     class_name: "test".to_string(),
+                    kind: SelectorKind::Class,
                     combinators: vec![],
                     pseudo_elements: vec![],
+                    pseudo_classes: vec![],
+                    attributes: vec![],
                     span: Span::empty(),
                 },
+                selectors: vec![],
                 declarations: vec![Declaration {
                     property: Property::Standard("opacity".to_string()),
                     value: Value::Number(value, None),
@@ -281,8 +297,10 @@ proptest! {
                 }],
                 states: vec![],
                 responsive: vec![],
+                nested_rules: vec![],
                 span: Span::empty(),
             }],
+            at_rules: vec![],
             span: Span::empty(),
         };
 

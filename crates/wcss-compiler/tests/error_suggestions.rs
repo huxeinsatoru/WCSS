@@ -104,6 +104,9 @@ proptest! {
             rules: vec![Rule {
                 selector: Selector {
                     class_name: "test".to_string(),
+                    kind: SelectorKind::Class,
+                    pseudo_classes: vec![],
+                    attributes: vec![],
                     combinators: vec![],
                     pseudo_elements: vec![],
                     span: Span::empty(),
@@ -118,10 +121,13 @@ proptest! {
                     important: false,
                     span: Span::empty(),
                 }],
+                selectors: vec![],
+                nested_rules: vec![],
                 states: vec![],
                 responsive: vec![],
                 span: Span::empty(),
             }],
+            at_rules: vec![],
             span: Span::empty(),
         };
         
@@ -179,6 +185,9 @@ proptest! {
             rules: vec![Rule {
                 selector: Selector {
                     class_name: "test".to_string(),
+                    kind: SelectorKind::Class,
+                    pseudo_classes: vec![],
+                    attributes: vec![],
                     combinators: vec![],
                     pseudo_elements: vec![],
                     span: Span::empty(),
@@ -193,10 +202,13 @@ proptest! {
                     important: false,
                     span: Span::empty(),
                 }],
+                selectors: vec![],
+                nested_rules: vec![],
                 states: vec![],
                 responsive: vec![],
                 span: Span::empty(),
             }],
+            at_rules: vec![],
             span: Span::empty(),
         };
         
@@ -246,6 +258,9 @@ fn test_color_token_typo_suggestion() {
         rules: vec![Rule {
             selector: Selector {
                 class_name: "test".to_string(),
+                kind: SelectorKind::Class,
+                pseudo_classes: vec![],
+                attributes: vec![],
                 combinators: vec![],
                 pseudo_elements: vec![],
                 span: Span::empty(),
@@ -260,10 +275,13 @@ fn test_color_token_typo_suggestion() {
                 important: false,
                 span: Span::empty(),
             }],
+            selectors: vec![],
+            nested_rules: vec![],
             states: vec![],
             responsive: vec![],
             span: Span::empty(),
         }],
+        at_rules: vec![],
         span: Span::empty(),
     };
     
@@ -295,6 +313,9 @@ fn test_spacing_token_typo_suggestion() {
         rules: vec![Rule {
             selector: Selector {
                 class_name: "test".to_string(),
+                kind: SelectorKind::Class,
+                pseudo_classes: vec![],
+                attributes: vec![],
                 combinators: vec![],
                 pseudo_elements: vec![],
                 span: Span::empty(),
@@ -309,10 +330,13 @@ fn test_spacing_token_typo_suggestion() {
                 important: false,
                 span: Span::empty(),
             }],
+            selectors: vec![],
+            nested_rules: vec![],
             states: vec![],
             responsive: vec![],
             span: Span::empty(),
         }],
+        at_rules: vec![],
         span: Span::empty(),
     };
     
@@ -343,11 +367,16 @@ fn test_breakpoint_suggestion() {
         rules: vec![Rule {
             selector: Selector {
                 class_name: "test".to_string(),
+                kind: SelectorKind::Class,
+                pseudo_classes: vec![],
+                attributes: vec![],
                 combinators: vec![],
                 pseudo_elements: vec![],
                 span: Span::empty(),
             },
             declarations: vec![],
+            selectors: vec![],
+            nested_rules: vec![],
             states: vec![],
             responsive: vec![ResponsiveBlock {
                 breakpoint: "xl".to_string(),
@@ -356,6 +385,7 @@ fn test_breakpoint_suggestion() {
             }],
             span: Span::empty(),
         }],
+        at_rules: vec![],
         span: Span::empty(),
     };
     
@@ -387,6 +417,9 @@ fn test_suggestion_quality() {
         rules: vec![Rule {
             selector: Selector {
                 class_name: "test".to_string(),
+                kind: SelectorKind::Class,
+                pseudo_classes: vec![],
+                attributes: vec![],
                 combinators: vec![],
                 pseudo_elements: vec![],
                 span: Span::empty(),
@@ -401,10 +434,13 @@ fn test_suggestion_quality() {
                 important: false,
                 span: Span::empty(),
             }],
+            selectors: vec![],
+            nested_rules: vec![],
             states: vec![],
             responsive: vec![],
             span: Span::empty(),
         }],
+        at_rules: vec![],
         span: Span::empty(),
     };
     
@@ -436,6 +472,9 @@ fn test_multiple_suggestions() {
         rules: vec![Rule {
             selector: Selector {
                 class_name: "test".to_string(),
+                kind: SelectorKind::Class,
+                pseudo_classes: vec![],
+                attributes: vec![],
                 combinators: vec![],
                 pseudo_elements: vec![],
                 span: Span::empty(),
@@ -450,10 +489,13 @@ fn test_multiple_suggestions() {
                 important: false,
                 span: Span::empty(),
             }],
+            selectors: vec![],
+            nested_rules: vec![],
             states: vec![],
             responsive: vec![],
             span: Span::empty(),
         }],
+        at_rules: vec![],
         span: Span::empty(),
     };
     
@@ -488,6 +530,9 @@ fn test_no_suggestion_for_unrelated_name() {
         rules: vec![Rule {
             selector: Selector {
                 class_name: "test".to_string(),
+                kind: SelectorKind::Class,
+                pseudo_classes: vec![],
+                attributes: vec![],
                 combinators: vec![],
                 pseudo_elements: vec![],
                 span: Span::empty(),
@@ -502,10 +547,13 @@ fn test_no_suggestion_for_unrelated_name() {
                 important: false,
                 span: Span::empty(),
             }],
+            selectors: vec![],
+            nested_rules: vec![],
             states: vec![],
             responsive: vec![],
             span: Span::empty(),
         }],
+        at_rules: vec![],
         span: Span::empty(),
     };
     

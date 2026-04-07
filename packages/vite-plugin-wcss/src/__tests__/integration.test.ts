@@ -209,7 +209,7 @@ describe('Vite Plugin Integration Tests', () => {
   });
 
   describe('HMR functionality', () => {
-    it('should trigger full reload for .wcss file changes', () => {
+    it('should return affected modules for CSS HMR on .wcss file changes', () => {
       const plugin = wcssPlugin() as Plugin;
 
       const mockServer = {
@@ -218,21 +218,71 @@ describe('Vite Plugin Integration Tests', () => {
         },
       };
 
+      const mockModule = {
+        id: '/src/styles/button.wcss',
+        file: '/src/styles/button.wcss',
+      };
+
       const ctx = {
         file: '/src/styles/button.wcss',
         server: mockServer,
-        modules: [],
+        modules: [mockModule],
         read: jest.fn(),
         timestamp: Date.now(),
       };
 
       if (plugin.handleHotUpdate) {
-        const result = plugin.handleHotUpdate(ctx as any);
+        const handler = typeof plugin.handleHotUpdate === 'function' 
+          ? plugin.handleHotUpdate 
+          : plugin.handleHotUpdate.handler;
+        const result = handler(ctx as any);
 
-        expect(mockServer.ws.send).toHaveBeenCalledWith({
-          type: 'full-reload',
-        });
-        expect(result).toEqual([]);
+        // Should return the affected modules for CSS HMR (not full reload)
+        expect(result).toEqual([mockModule]);
+        // Should NOT trigger full reload
+        expect(mockServer.ws.send).not.toHaveBeenCalled();
+      }
+    });
+
+    it('should handle .wcss files imported from JS/TS modules', () => {
+      const plugin = wcssPlugin() as Plugin;
+
+      const mockServer = {
+        ws: {
+          send: jest.fn(),
+        },
+      };
+
+      // Simulate a .wcss file imported by a TypeScript component
+      const wcssModule = {
+        id: '/src/styles/button.wcss',
+        file: '/src/styles/button.wcss',
+      };
+
+      const jsModule = {
+        id: '/src/components/Button.tsx',
+        file: '/src/components/Button.tsx',
+        importers: new Set(['/src/App.tsx']),
+      };
+
+      const ctx = {
+        file: '/src/styles/button.wcss',
+        server: mockServer,
+        modules: [wcssModule, jsModule], // Both the .wcss and importing JS module
+        read: jest.fn(),
+        timestamp: Date.now(),
+      };
+
+      if (plugin.handleHotUpdate) {
+        const handler = typeof plugin.handleHotUpdate === 'function' 
+          ? plugin.handleHotUpdate 
+          : plugin.handleHotUpdate.handler;
+        const result = handler(ctx as any);
+
+        // Should return all affected modules (including JS/TS importers)
+        expect(result).toEqual([wcssModule, jsModule]);
+        // Should NOT trigger full reload
+        expect(mockServer.ws.send).not.toHaveBeenCalled();
       }
     });
 
@@ -254,9 +304,12 @@ describe('Vite Plugin Integration Tests', () => {
       };
 
       if (plugin.handleHotUpdate) {
-        const result = plugin.handleHotUpdate(ctx as any);
+        const handler = typeof plugin.handleHotUpdate === 'function' 
+          ? plugin.handleHotUpdate 
+          : plugin.handleHotUpdate.handler;
+        const result = handler(ctx as any);
 
-        // Should not send reload for non-wcss files
+        // Should not handle non-wcss files (return undefined to let other plugins handle it)
         expect(result).toBeUndefined();
       }
     });
@@ -270,23 +323,64 @@ describe('Vite Plugin Integration Tests', () => {
         },
       };
 
+      const mockModule = {
+        id: '/src/styles/button.wcss',
+        file: '/src/styles/button.wcss',
+      };
+
       // Simulate multiple rapid file changes
       for (let i = 0; i < 10; i++) {
         const ctx = {
           file: '/src/styles/button.wcss',
           server: mockServer,
-          modules: [],
+          modules: [mockModule],
           read: jest.fn(),
           timestamp: Date.now() + i,
         };
 
         if (plugin.handleHotUpdate) {
-          plugin.handleHotUpdate(ctx as any);
+          const handler = typeof plugin.handleHotUpdate === 'function' 
+            ? plugin.handleHotUpdate 
+            : plugin.handleHotUpdate.handler;
+          const result = handler(ctx as any);
+          
+          // Each update should return the affected modules
+          expect(result).toEqual([mockModule]);
         }
       }
 
-      // Should have sent reload for each change
-      expect(mockServer.ws.send).toHaveBeenCalledTimes(10);
+      // Should NOT have triggered any full reloads
+      expect(mockServer.ws.send).not.toHaveBeenCalled();
+    });
+
+    it('should handle empty modules array gracefully', () => {
+      const plugin = wcssPlugin() as Plugin;
+
+      const mockServer = {
+        ws: {
+          send: jest.fn(),
+        },
+      };
+
+      const ctx = {
+        file: '/src/styles/button.wcss',
+        server: mockServer,
+        modules: [], // No modules importing this file yet
+        read: jest.fn(),
+        timestamp: Date.now(),
+      };
+
+      if (plugin.handleHotUpdate) {
+        const handler = typeof plugin.handleHotUpdate === 'function' 
+          ? plugin.handleHotUpdate 
+          : plugin.handleHotUpdate.handler;
+        const result = handler(ctx as any);
+
+        // Should return empty array (no modules to update)
+        expect(result).toEqual([]);
+        // Should NOT trigger full reload
+        expect(mockServer.ws.send).not.toHaveBeenCalled();
+      }
     });
   });
 

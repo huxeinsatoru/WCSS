@@ -72,13 +72,18 @@ fn dynamic_rule_strategy() -> impl Strategy<Value = Rule> {
         .prop_map(|(class_name, declarations)| Rule {
             selector: Selector {
                 class_name,
+                kind: SelectorKind::Class,
                 combinators: vec![],
                 pseudo_elements: vec![],
+                pseudo_classes: vec![],
+                attributes: vec![],
                 span: Span::empty(),
             },
+            selectors: vec![],
             declarations,
             states: vec![],
             responsive: vec![],
+            nested_rules: vec![],
             span: Span::empty(),
         })
 }
@@ -87,6 +92,7 @@ fn dynamic_rule_strategy() -> impl Strategy<Value = Rule> {
 fn dynamic_stylesheet_strategy() -> impl Strategy<Value = StyleSheet> {
     prop::collection::vec(dynamic_rule_strategy(), 1..=10).prop_map(|rules| StyleSheet {
         rules,
+        at_rules: vec![],
         span: Span::empty(),
     })
 }
@@ -155,10 +161,14 @@ proptest! {
             rules: vec![Rule {
                 selector: Selector {
                     class_name: class_name.clone(),
+                    kind: SelectorKind::Class,
                     combinators: vec![],
                     pseudo_elements: vec![],
+                    pseudo_classes: vec![],
+                    attributes: vec![],
                     span: Span::empty(),
                 },
+                selectors: vec![],
                 declarations: vec![Declaration {
                     property: Property::Standard(property.clone()),
                     value: Value::Token(token_ref.clone()),
@@ -167,8 +177,10 @@ proptest! {
                 }],
                 states: vec![],
                 responsive: vec![],
+                nested_rules: vec![],
                 span: Span::empty(),
             }],
+            at_rules: vec![],
             span: Span::empty(),
         };
 
@@ -213,10 +225,14 @@ proptest! {
             rules: vec![Rule {
                 selector: Selector {
                     class_name: class_name.clone(),
+                    kind: SelectorKind::Class,
                     combinators: vec![],
                     pseudo_elements: vec![],
+                    pseudo_classes: vec![],
+                    attributes: vec![],
                     span: Span::empty(),
                 },
+                selectors: vec![],
                 declarations: vec![],
                 states: vec![StateBlock {
                     modifiers: vec![StateModifier::Hover],
@@ -229,8 +245,10 @@ proptest! {
                     span: Span::empty(),
                 }],
                 responsive: vec![],
+                nested_rules: vec![],
                 span: Span::empty(),
             }],
+            at_rules: vec![],
             span: Span::empty(),
         };
 
@@ -265,10 +283,14 @@ proptest! {
             rules: vec![Rule {
                 selector: Selector {
                     class_name: class_name.clone(),
+                    kind: SelectorKind::Class,
                     combinators: vec![],
                     pseudo_elements: vec![],
+                    pseudo_classes: vec![],
+                    attributes: vec![],
                     span: Span::empty(),
                 },
+                selectors: vec![],
                 declarations: vec![],
                 states: vec![],
                 responsive: vec![ResponsiveBlock {
@@ -281,8 +303,10 @@ proptest! {
                     }],
                     span: Span::empty(),
                 }],
+                nested_rules: vec![],
                 span: Span::empty(),
             }],
+            at_rules: vec![],
             span: Span::empty(),
         };
 
@@ -329,15 +353,21 @@ proptest! {
             rules: vec![Rule {
                 selector: Selector {
                     class_name: class_name.clone(),
+                    kind: SelectorKind::Class,
                     combinators: vec![],
                     pseudo_elements: vec![],
+                    pseudo_classes: vec![],
+                    attributes: vec![],
                     span: Span::empty(),
                 },
+                selectors: vec![],
                 declarations,
                 states: vec![],
                 responsive: vec![],
+                nested_rules: vec![],
                 span: Span::empty(),
             }],
+            at_rules: vec![],
             span: Span::empty(),
         };
 
@@ -368,10 +398,14 @@ proptest! {
             rules: vec![Rule {
                 selector: Selector {
                     class_name: class_name.clone(),
+                    kind: SelectorKind::Class,
                     combinators: vec![],
                     pseudo_elements: vec![],
+                    pseudo_classes: vec![],
+                    attributes: vec![],
                     span: Span::empty(),
                 },
+                selectors: vec![],
                 declarations: vec![Declaration {
                     property: Property::Standard(property.clone()),
                     value: Value::Token(token_ref.clone()),
@@ -380,8 +414,10 @@ proptest! {
                 }],
                 states: vec![],
                 responsive: vec![],
+                nested_rules: vec![],
                 span: Span::empty(),
             }],
+            at_rules: vec![],
             span: Span::empty(),
         };
 
