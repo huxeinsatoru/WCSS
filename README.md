@@ -9,14 +9,20 @@ A CSS compiler built with Rust and WebAssembly. Compiles in microseconds, output
 - **Fast compilation** - Rust-based compiler with WebAssembly (1.73ms for 5000 rules with tree-shaking)
 - **Full CSS spec support** - All selectors (#id, .class, [attr], :pseudo), at-rules (@keyframes, @layer, @media, @container), 55+ units, 40+ pseudo-classes
 - **Tree shaking** - Remove unused CSS classes (98% size reduction)
+- **CSS Modules** - Local scoping with `.module.wcss`, class hashing, `:local()/:global()`, `composes:` support
+- **Bundle Analyzer** - Tree-shaking stats per component, size analysis, top 10 largest rules
+- **VS Code LSP** - Autocomplete, diagnostics, hover info, formatting support
 - **Plugin system** - 6 hooks for custom transformations (before/after parse, optimize, codegen)
 - **Vendor prefixing** - Automatic -webkit-, -moz-, -ms- prefixes for 30+ properties
 - **Dark mode** - Built-in support (media query, class, attribute strategies)
 - **Incremental cache** - Content-hash based AST/CSS caching
 - **Modern colors** - oklch, oklab, hwb, lab, lch, color-mix(), light-dark()
 - **W3C Design Tokens** - Industry standard token format with multi-platform code generation
+- **Parallel processing** - Rayon-based multi-file compilation (auto-parallel for 2+ files)
+- **Rich diagnostics** - E001-E010 error codes, Levenshtein suggestions, colored output
 - **Zero runtime** - Pure CSS output, no JavaScript in browser
 - **Framework plugins** - Vite, Webpack, Next.js, Nuxt, Astro
+- **Cloud environment support** - Works in Lovable, StackBlitz, CodeSandbox via WASM
 
 ## Install
 
@@ -173,6 +179,39 @@ Use in styles:
 ```
 
 ## Language Features
+
+### CSS Modules
+
+WCSS supports CSS Modules for local scoping with `.module.wcss` files:
+
+```wcss
+/* button.module.wcss */
+.button {
+  padding: 1rem 2rem;
+  background: #3b82f6;
+}
+
+.primary {
+  composes: button;
+  background: #2563eb;
+}
+
+:global(.reset) {
+  margin: 0;
+  padding: 0;
+}
+```
+
+Features:
+- **Class hashing** - Automatic content-based hash appending (e.g., `button_a1b2c3`)
+- **Local/Global scoping** - Use `:local()` and `:global()` to control scope
+- **Composition** - Compose classes with `composes: className` or `composes: className from './other.module.css'`
+- **Export maps** - Generate JSON/JS exports for use in JavaScript
+
+```javascript
+import styles from './button.module.wcss';
+// styles = { button: 'button_a1b2c3', primary: 'primary_d4e5f6 button_a1b2c3' }
+```
 
 ### Full CSS Selector Support
 
@@ -342,6 +381,7 @@ Benchmarked on Apple M3 with 5000 utility classes:
 - Built-in tree shaking removes unused CSS
 - Multi-platform code generation from W3C Design Tokens
 - Full compiler features: parser, validator, optimizer, source maps
+- Parallel processing with Rayon (auto-parallel for 2+ files)
 
 Run benchmarks:
 ```bash
@@ -350,21 +390,92 @@ cargo run --release --bin benchmark_5k
 
 See [BENCHMARK_RESULTS.md](./BENCHMARK_RESULTS.md) for detailed results.
 
-## CLI Commands
+## Bundle Analyzer
+
+Analyze your CSS bundle to understand optimization impact:
 
 ```bash
-# Build
+wcss build styles.wcss -o output.css --analyze
+```
+
+Output includes:
+- **Size comparison** - Original vs optimized size with reduction percentage
+- **Rule statistics** - Total rules, removed rules, kept rules
+- **Declaration stats** - Duplicate declarations removed, shorthand merges
+- **Top 10 largest rules** - Identify optimization opportunities
+- **Unused selectors** - List of selectors removed by tree-shaking
+
+Example output:
+```
+╔════════════════════════════════════════╗
+║      WCSS Bundle Analysis              ║
+╠════════════════════════════════════════╣
+║ Original:                    340.0 KB  ║
+║ Optimized:                     6.6 KB  ║
+║ Saved:              333.4 KB (98.1%)   ║
+╠════════════════════════════════════════╣
+║ Rules: 5000 -> 100 (-4900)             ║
+║ Declarations: 10000 -> 200 (-9800)     ║
+║ Duplicates removed: 50                 ║
+║ Shorthand merges: 12                   ║
+╠════════════════════════════════════════╣
+║ Top 10 Largest Rules:                  ║
+║  1. .card          (245 B, 8 decl)     ║
+║  2. .button        (198 B, 6 decl)     ║
+║ ...                                    ║
+╚════════════════════════════════════════╝
+```
+
+## CLI Commands
+
+The native Rust CLI provides fast compilation with rich diagnostics:
+
+```bash
+# Build with parallel processing (auto-enabled for 2+ files)
 wcss build input.wcss -o output.css
 
-# Watch mode
+# Build with minification
+wcss build input.wcss -o output.css --minify
+
+# Build with tree-shaking
+wcss build input.wcss -o output.css --tree-shaking
+
+# Build with source maps
+wcss build input.wcss -o output.css --source-maps inline
+
+# Watch mode with auto-recompilation
 wcss watch input.wcss -o output.css
 
-# Format
+# Format WCSS files
 wcss format input.wcss --write
 
-# W3C Tokens
+# W3C Design Tokens compilation
 wcss tokens tokens.json --platform css -o tokens.css
 wcss tokens tokens.json --platform ios -o DesignTokens.swift
+wcss tokens tokens.json --platform android -o res/values/
+wcss tokens tokens.json --platform flutter -o design_tokens.dart
+wcss tokens tokens.json --platform typescript -o tokens.ts
+wcss tokens tokens.json --platform docs -o docs/
+```
+
+### Rich Diagnostics
+
+The compiler provides detailed error messages with:
+- **Error codes** - E001-E010 for common mistakes
+- **Levenshtein suggestions** - "Did you mean `color`?" for typos
+- **Colored output** - Red for errors, yellow for warnings
+- **Source snippets** - Show the exact line with the error
+- **Caret underlines** - Point to the exact location
+
+Example error output:
+```
+error[E001]: Unknown property 'colr'
+  ┌─ styles.wcss:3:3
+  │
+3 │   colr: red;
+  │   ^^^^
+  = help: Did you mean `color`?
+  = note: [E001] The property name is not a recognized CSS property.
 ```
 
 ## Configuration
@@ -428,23 +539,95 @@ export default {
 | Package | Description |
 |---------|-------------|
 | `wcss-compiler` | Core compiler (Rust) |
+| `wcss-cli` | Native Rust CLI with parallel processing |
 | `wcss-wasm` | WebAssembly build |
-| `@wcss/cli` | Command-line interface |
-| `vite-plugin-wcss` | Vite plugin |
+| `@wcss/wasm` | WASM package for cloud environments (npm) |
+| `@wcss/cli` | Command-line interface (npm) |
+| `vite-plugin-wcss` | Vite plugin with HMR support |
 | `next-wcss` | Next.js plugin |
 | `wcss-loader` | Webpack loader |
 | `astro-wcss` | Astro integration |
+| `wcss-lsp` | Language Server Protocol implementation |
 | `vscode-wcss` | VS Code extension |
+
+## IDE Support
+
+### VS Code Extension
+
+Install the WCSS extension for VS Code to get:
+- **Autocomplete** - IntelliSense for CSS properties and values
+- **Diagnostics** - Real-time error checking with E001-E010 codes
+- **Hover info** - Documentation for properties and values
+- **Formatting** - Auto-format WCSS files on save
+- **Syntax highlighting** - Full WCSS syntax support
+
+The extension uses the `wcss-lsp` Language Server Protocol implementation for fast, accurate language features.
+
+## CI/CD
+
+WCSS includes GitHub Actions workflows for continuous integration:
+
+### Workflows
+
+- **CI** (`.github/workflows/ci.yml`) - Runs on push/PR
+  - Rust format check (`cargo fmt`)
+  - Rust clippy linting (`cargo clippy`)
+  - Rust tests on Ubuntu, macOS, Windows
+  - WASM build for bundler and Node.js targets
+  - JavaScript tests (350 total tests)
+  - Benchmark comparison on PRs
+
+- **Release** (`.github/workflows/release.yml`) - Automated releases
+  - Build native binaries for Linux, macOS, Windows
+  - Publish to crates.io
+  - Publish to npm registry
+  - Create GitHub releases with artifacts
+
+- **Benchmark** (`.github/workflows/benchmark.yml`) - Performance tracking
+  - Run benchmarks on schedule
+  - Compare PR performance vs base branch
+  - Post results as PR comments
 
 ## Testing
 
+WCSS has comprehensive test coverage with 350+ tests:
+
 ```bash
-# Rust tests
+# Rust tests (208 tests)
 cargo test
 
-# JavaScript tests
+# JavaScript tests (142 tests)
 npm test
+
+# Property-based tests
+cargo test --test deduplication
+cargo test --test minification
+cargo test --test parse_format_roundtrip
+cargo test --test token_resolution
+cargo test --test tree_shaking
+cargo test --test valid_css_generation
+cargo test --test zero_runtime
+
+# Parallel processing tests (8 tests)
+cargo test --test parallel_processing
+
+# Diagnostics tests (60+ tests)
+cargo test --test diagnostics_tests
+cargo test --test error_reporting_completeness
+cargo test --test error_suggestions
+cargo test --test multiple_error_detection
+
+# Run all tests
+cargo test --workspace && npm test
 ```
+
+Test categories:
+- **Unit tests** - Core compiler functionality
+- **Property-based tests** - Fuzzing with proptest for edge cases
+- **Integration tests** - End-to-end compilation workflows
+- **Parallel processing tests** - Multi-file compilation
+- **Diagnostics tests** - Error reporting and suggestions
+- **Framework tests** - Vite, Next.js, Astro plugins
 
 ## License
 
