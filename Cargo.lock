@@ -1106,7 +1106,7 @@ dependencies = [
 
 [[package]]
 name = "wcss-cli"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "clap",
  "colored",
@@ -1118,7 +1118,7 @@ dependencies = [
 
 [[package]]
 name = "wcss-compiler"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "glob",
  "proptest",
@@ -1131,7 +1131,7 @@ dependencies = [
 
 [[package]]
 name = "wcss-wasm"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "serde",
  "serde-wasm-bindgen",
