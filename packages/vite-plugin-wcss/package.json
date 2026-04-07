@@ -1,6 +1,6 @@
 {
   "name": "vite-plugin-wcss",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "type": "module",
   "description": "Vite plugin for WCSS (Web Compiler Style Sheets) - compile WCSS to CSS with WebAssembly. Works in cloud environments like Lovable, StackBlitz, and CodeSandbox.",
   "main": "dist/index.js",
@@ -50,6 +50,6 @@
     "ts-jest": "^29.1.1"
   },
   "dependencies": {
-    "@wcss/wasm": "^0.1.0"
+    "@wcss/wasm": "^0.2.0"
   }
 }
