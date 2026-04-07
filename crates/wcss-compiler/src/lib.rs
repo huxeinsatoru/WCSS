@@ -1,5 +1,6 @@
 pub mod ast;
 pub mod config;
+pub mod content_scanner;
 pub mod diagnostics;
 pub mod error;
 pub mod parser;
@@ -40,6 +41,29 @@ pub fn compile(source: &str, config: &CompilerConfig) -> CompileResult {
 /// Compile WCSS source code to CSS with plugin support.
 pub fn compile_with_plugins(source: &str, config: &CompilerConfig, plugins: &PluginRegistry) -> CompileResult {
     let mut source_owned = source.to_string();
+
+    // Auto-scan content paths if tree-shaking is enabled but no used_classes provided
+    let mut config_with_scanned = config.clone();
+    if config.tree_shaking && config.used_classes.is_empty() && !config.content_paths.is_empty() {
+        // Convert PathBuf to String patterns
+        let patterns: Vec<String> = config.content_paths
+            .iter()
+            .filter_map(|p| p.to_str().map(|s| s.to_string()))
+            .collect();
+
+        if !patterns.is_empty() {
+            match content_scanner::scan_content_paths(patterns) {
+                Ok(scanned_classes) => {
+                    config_with_scanned.used_classes = scanned_classes.into_iter().collect();
+                }
+                Err(e) => {
+                    eprintln!("Warning: Content scanning failed: {}", e);
+                }
+            }
+        }
+    }
+
+    let config = &config_with_scanned;
 
     // Plugin: before_parse
     if plugins.has_plugins() {
