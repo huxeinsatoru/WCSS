@@ -1,0 +1,18 @@
+[package]
+name = "wcss-cli"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Native Rust CLI for WCSS (Web Compiler Style Sheets)"
+
+[[bin]]
+name = "wcss"
+path = "src/main.rs"
+
+[dependencies]
+wcss-compiler = { path = "../wcss-compiler" }
+clap = { version = "4", features = ["derive"] }
+notify = "6"
+colored = "2"
+serde_json = "1"
+glob = "0.3"

@@ -1,6 +1,7 @@
 [workspace]
 members = [
     "crates/wcss-compiler",
+    "crates/wcss-cli",
     "crates/wcss-wasm",
 ]
 resolver = "2"

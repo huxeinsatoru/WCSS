@@ -61,6 +61,8 @@ pub enum AtRule {
     Charset(String, Span),
     /// @namespace ...
     Namespace(String, Span),
+    /// @scope (.root) to (.limit) { ... }
+    Scope(ScopeRule),
 }
 
 /// @import rule
@@ -159,6 +161,18 @@ pub struct PropertyRule {
     pub syntax: Option<String>,
     pub inherits: Option<bool>,
     pub initial_value: Option<String>,
+    pub span: Span,
+}
+
+/// @scope rule: `@scope (.root) to (.limit) { ... }` or `@scope (.root) { ... }` or `@scope { ... }`
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ScopeRule {
+    /// The root selector (e.g., ".card"). Empty string for implicit scope.
+    pub root: String,
+    /// Optional limit selector (e.g., ".card__content").
+    pub limit: Option<String>,
+    /// Rules inside the scope block.
+    pub rules: Vec<Rule>,
     pub span: Span,
 }
 

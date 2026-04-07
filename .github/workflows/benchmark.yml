@@ -1,0 +1,107 @@
+name: Benchmark
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  pull-requests: write
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  benchmark:
+    name: Run Benchmarks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-bench-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-bench-
+
+      - name: Build and run benchmarks (PR branch)
+        run: |
+          echo "=== PR Branch Benchmarks ===" | tee pr_results.txt
+          echo "" >> pr_results.txt
+          echo "--- benchmark_5k ---" | tee -a pr_results.txt
+          cargo run --release --bin benchmark_5k 2>&1 | tee -a pr_results.txt
+          echo "" >> pr_results.txt
+          echo "--- small_test ---" | tee -a pr_results.txt
+          cargo run --release --bin small_test 2>&1 | tee -a pr_results.txt
+
+      - name: Build and run benchmarks (base branch)
+        run: |
+          git checkout ${{ github.event.pull_request.base.sha }}
+          echo "=== Base Branch Benchmarks ===" | tee base_results.txt
+          echo "" >> base_results.txt
+          echo "--- benchmark_5k ---" | tee -a base_results.txt
+          cargo run --release --bin benchmark_5k 2>&1 | tee -a base_results.txt
+          echo "" >> base_results.txt
+          echo "--- small_test ---" | tee -a base_results.txt
+          cargo run --release --bin small_test 2>&1 | tee -a base_results.txt
+          git checkout -
+
+      - name: Post benchmark comparison
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const prResults = fs.readFileSync('pr_results.txt', 'utf8');
+            const baseResults = fs.readFileSync('base_results.txt', 'utf8');
+
+            const body = `## Benchmark Comparison
+
+            ### PR Branch (\`${{ github.head_ref }}\`)
+            \`\`\`
+            ${prResults}
+            \`\`\`
+
+            ### Base Branch (\`${{ github.base_ref }}\`)
+            \`\`\`
+            ${baseResults}
+            \`\`\`
+
+            ---
+            _Benchmarks ran on \`ubuntu-latest\`. Results may vary due to shared CI runners._
+            `;
+
+            // Update or create comment
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+
+            const botComment = comments.find(c =>
+              c.user.type === 'Bot' && c.body.includes('## Benchmark Comparison')
+            );
+
+            if (botComment) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: botComment.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body,
+              });
+            }

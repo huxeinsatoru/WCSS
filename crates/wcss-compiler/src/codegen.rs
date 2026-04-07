@@ -248,6 +248,34 @@ fn generate_at_rule(output: &mut String, at_rule: &AtRule, config: &CompilerConf
             output.push('}');
             if !minify { output.push('\n'); }
         }
+
+        AtRule::Scope(s) => {
+            output.push_str(&prefix);
+            output.push_str("@scope ");
+            if !s.root.is_empty() {
+                output.push('(');
+                output.push_str(&s.root);
+                output.push(')');
+            }
+            if let Some(ref limit) = s.limit {
+                output.push_str(" to (");
+                output.push_str(limit);
+                output.push(')');
+            }
+            if minify {
+                output.push('{');
+            } else {
+                output.push_str(" {\n");
+            }
+
+            for rule in &s.rules {
+                generate_rule(output, rule, config, minify, indent + 1);
+            }
+
+            output.push_str(&prefix);
+            output.push('}');
+            if !minify { output.push('\n'); }
+        }
     }
 }
 
@@ -419,7 +447,7 @@ fn generate_rule(output: &mut String, rule: &Rule, config: &CompilerConfig, mini
 fn write_selector_list(output: &mut String, rule: &Rule, minify: bool) {
     write_full_selector(output, &rule.selector);
 
-    for (i, sel) in rule.selectors.iter().enumerate() {
+    for (_i, sel) in rule.selectors.iter().enumerate() {
         if minify {
             output.push(',');
         } else {

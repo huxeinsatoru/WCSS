@@ -465,6 +465,10 @@ impl<'a> Parser<'a> {
                 if self.peek_byte() == Some(b';') { self.advance(); }
                 Ok(AtRuleOrRule::AtRule(AtRule::Charset(charset, self.span_from(start_pos, start_line, start_col))))
             }
+            "scope" => {
+                let rule = self.parse_scope_rule(start_pos, start_line, start_col)?;
+                Ok(AtRuleOrRule::AtRule(AtRule::Scope(rule)))
+            }
             "namespace" => {
                 let start = self.pos;
                 while self.pos < self.bytes.len() && self.bytes[self.pos] != b';' {
@@ -610,6 +614,67 @@ impl<'a> Parser<'a> {
         Ok(LayerRule {
             name,
             rules: Some(rules),
+            span: self.span_from(start_pos, start_line, start_col),
+        })
+    }
+
+    fn parse_scope_rule(&mut self, start_pos: usize, start_line: usize, start_col: usize) -> Result<ScopeRule, CompilerError> {
+        self.skip_whitespace();
+
+        // Parse optional root selector in parens: @scope (.card) or @scope { ... }
+        let root = if self.peek_byte() == Some(b'(') {
+            self.read_balanced_parens()?
+        } else {
+            String::new()
+        };
+
+        self.skip_whitespace();
+
+        // Parse optional "to" limit: @scope (.card) to (.card__content)
+        let limit = {
+            let saved_pos = self.pos;
+            let saved_line = self.line;
+            let saved_col = self.column;
+            if let Some(ident) = self.read_identifier() {
+                if ident == "to" {
+                    self.skip_whitespace();
+                    if self.peek_byte() == Some(b'(') {
+                        Some(self.read_balanced_parens()?)
+                    } else {
+                        None
+                    }
+                } else {
+                    // Not "to", reset
+                    self.pos = saved_pos;
+                    self.line = saved_line;
+                    self.column = saved_col;
+                    None
+                }
+            } else {
+                None
+            }
+        };
+
+        self.skip_whitespace();
+        self.expect('{')?;
+
+        let mut rules = Vec::new();
+        loop {
+            self.skip_whitespace();
+            if self.peek_byte() == Some(b'}') {
+                self.advance();
+                break;
+            }
+            if self.pos >= self.bytes.len() {
+                return Err(CompilerError::syntax("Unclosed @scope block", self.current_span()));
+            }
+            rules.push(self.parse_rule()?);
+        }
+
+        Ok(ScopeRule {
+            root,
+            limit,
+            rules,
             span: self.span_from(start_pos, start_line, start_col),
         })
     }

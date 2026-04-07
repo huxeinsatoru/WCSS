@@ -129,6 +129,20 @@ fn format_at_rule(output: &mut String, at_rule: &AtRule, indent: usize) {
             }
             output.push_str(&format!("{prefix}}}\n"));
         }
+        AtRule::Scope(s) => {
+            output.push_str(&format!("{prefix}@scope "));
+            if !s.root.is_empty() {
+                output.push_str(&format!("({}))", s.root));
+            }
+            if let Some(ref limit) = s.limit {
+                output.push_str(&format!(" to ({limit})"));
+            }
+            output.push_str(" {\n");
+            for rule in &s.rules {
+                format_rule(output, rule, indent + 1);
+            }
+            output.push_str(&format!("{prefix}}}\n"));
+        }
     }
 }
 

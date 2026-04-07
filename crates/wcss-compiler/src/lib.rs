@@ -1,5 +1,6 @@
 pub mod ast;
 pub mod config;
+pub mod diagnostics;
 pub mod error;
 pub mod parser;
 pub mod validator;
@@ -11,6 +12,7 @@ pub mod sourcemap;
 pub mod prefixer;
 pub mod plugin;
 pub mod cache;
+pub mod parallel;
 pub mod w3c_parser;
 pub mod w3c_validator;
 pub mod w3c_resolver;
@@ -23,6 +25,8 @@ pub mod w3c_transform;
 pub mod docs_generator;
 pub mod w3c_optimizer;
 pub mod typescript_generator;
+
+pub use parallel::{parallel_compile_files, parallel_optimize, parallel_parse};
 
 use config::CompilerConfig;
 use error::CompileResult;
@@ -156,6 +160,23 @@ pub fn compile_with_plugins(source: &str, config: &CompilerConfig, plugins: &Plu
         errors,
         warnings,
         stats,
+    }
+}
+
+/// Compile multiple WCSS source strings, using parallel processing when there
+/// are more than one source to compile.
+///
+/// Results are returned in the same order as the input sources.
+pub fn compile_multiple(sources: &[&str], config: &CompilerConfig) -> Vec<CompileResult> {
+    if sources.len() <= 1 {
+        // Sequential for a single file — avoid rayon overhead
+        sources.iter().map(|s| compile(s, config)).collect()
+    } else {
+        use rayon::prelude::*;
+        sources
+            .par_iter()
+            .map(|s| compile(s, config))
+            .collect()
     }
 }
 
