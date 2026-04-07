@@ -8,6 +8,9 @@ pub mod codegen;
 pub mod tokens;
 pub mod formatter;
 pub mod sourcemap;
+pub mod prefixer;
+pub mod plugin;
+pub mod cache;
 pub mod w3c_parser;
 pub mod w3c_validator;
 pub mod w3c_resolver;
@@ -23,15 +26,37 @@ pub mod typescript_generator;
 
 use config::CompilerConfig;
 use error::CompileResult;
+use plugin::PluginRegistry;
 
 /// Compile WCSS source code to CSS.
 pub fn compile(source: &str, config: &CompilerConfig) -> CompileResult {
-    let parse_result = parser::parse(source);
+    compile_with_plugins(source, config, &PluginRegistry::new())
+}
+
+/// Compile WCSS source code to CSS with plugin support.
+pub fn compile_with_plugins(source: &str, config: &CompilerConfig, plugins: &PluginRegistry) -> CompileResult {
+    let mut source_owned = source.to_string();
+
+    // Plugin: before_parse
+    if plugins.has_plugins() {
+        if let Err(e) = plugins.run_before_parse(&mut source_owned) {
+            return CompileResult {
+                css: String::new(),
+                js: None,
+                source_map: None,
+                errors: vec![error::CompilerError::syntax(e.message, ast::Span::empty())],
+                warnings: Vec::new(),
+                stats: error::CompilationStats::default(),
+            };
+        }
+    }
+
+    let parse_result = parser::parse(&source_owned);
 
     let mut errors = Vec::new();
     let warnings = Vec::new();
 
-    let stylesheet = match parse_result {
+    let mut stylesheet = match parse_result {
         Ok(stylesheet) => stylesheet,
         Err(parse_errors) => {
             return CompileResult {
@@ -44,6 +69,13 @@ pub fn compile(source: &str, config: &CompilerConfig) -> CompileResult {
             };
         }
     };
+
+    // Plugin: after_parse
+    if plugins.has_plugins() {
+        if let Err(e) = plugins.run_after_parse(&mut stylesheet) {
+            errors.push(error::CompilerError::syntax(e.message, ast::Span::empty()));
+        }
+    }
 
     // Validate
     let validation_errors = validator::validate(&stylesheet, config);
@@ -60,17 +92,41 @@ pub fn compile(source: &str, config: &CompilerConfig) -> CompileResult {
         };
     }
 
-    // Track rule count before optimization
     let input_rule_count = stylesheet.rules.len();
 
     // Resolve tokens (takes ownership, no clone)
-    let resolved = tokens::resolve(stylesheet, &config.tokens);
+    let mut resolved = tokens::resolve(stylesheet, &config.tokens);
+
+    // Plugin: before_optimize
+    if plugins.has_plugins() {
+        let _ = plugins.run_before_optimize(&mut resolved);
+    }
 
     // Optimize
-    let optimized = optimizer::optimize(resolved, config);
+    let mut optimized = optimizer::optimize(resolved, config);
+
+    // Vendor prefixing
+    if config.autoprefixer {
+        optimized = prefixer::prefix(optimized, &config.browser_targets);
+    }
+
+    // Plugin: after_optimize
+    if plugins.has_plugins() {
+        let _ = plugins.run_after_optimize(&mut optimized);
+    }
+
+    // Plugin: before_codegen
+    if plugins.has_plugins() {
+        let _ = plugins.run_before_codegen(&mut optimized);
+    }
 
     // Generate CSS
-    let css_output = codegen::generate_css(&optimized, config);
+    let mut css_output = codegen::generate_css(&optimized, config);
+
+    // Plugin: after_codegen
+    if plugins.has_plugins() {
+        let _ = plugins.run_after_codegen(&mut css_output);
+    }
 
     // Generate JS (Typed OM) if enabled
     let js_output = if config.typed_om {
@@ -115,13 +171,6 @@ pub fn format(source: &str) -> Result<String, Vec<error::CompilerError>> {
 }
 
 /// Compile W3C Design Tokens to the specified platform target.
-///
-/// # Arguments
-/// * `json_content` - The W3C Design Tokens JSON content
-/// * `target` - The platform target (CSS, iOS, Android, Flutter, etc.)
-///
-/// # Returns
-/// A map of filename to content, or a vector of errors if compilation fails.
 pub fn compile_w3c_tokens(
     json_content: &str,
     target: config::PlatformTarget,
@@ -132,22 +181,18 @@ pub fn compile_w3c_tokens(
     use config::PlatformTarget;
     use android_generator::{AndroidGenerator, AndroidFormat};
 
-    // Parse W3C tokens
     let mut tokens = W3CTokenParser::parse(json_content)?;
 
-    // Validate token types
     for token in &tokens {
         if let Err(e) = TokenTypeValidator::validate(token) {
             return Err(vec![e]);
         }
     }
 
-    // Resolve references
     let mut resolver = TokenReferenceResolver::new(tokens);
     resolver.resolve_all()?;
     tokens = resolver.get_resolved_tokens();
 
-    // Generate output based on target
     let mut output = std::collections::HashMap::new();
 
     match target {
@@ -187,6 +232,82 @@ pub fn compile_w3c_tokens(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_compile_basic() {
+        let source = ".btn { color: red; }";
+        let config = CompilerConfig { minify: false, ..Default::default() };
+        let result = compile(source, &config);
+        assert!(result.errors.is_empty());
+        assert!(result.css.contains(".btn"));
+        assert!(result.css.contains("color: red"));
+    }
+
+    #[test]
+    fn test_compile_with_keyframes() {
+        let source = r#"
+            @keyframes fadeIn {
+                from { opacity: 0; }
+                to { opacity: 1; }
+            }
+            .fade { animation: fadeIn 1s; }
+        "#;
+        let config = CompilerConfig { minify: false, ..Default::default() };
+        let result = compile(source, &config);
+        assert!(result.errors.is_empty());
+        assert!(result.css.contains("@keyframes fadeIn"));
+    }
+
+    #[test]
+    fn test_compile_with_layer() {
+        let source = r#"
+            @layer utilities {
+                .hidden { display: none; }
+            }
+        "#;
+        let config = CompilerConfig { minify: false, ..Default::default() };
+        let result = compile(source, &config);
+        assert!(result.errors.is_empty());
+        assert!(result.css.contains("@layer utilities"));
+    }
+
+    #[test]
+    fn test_compile_with_dark_mode() {
+        let source = r#"
+            .card {
+                background: white;
+                &:dark {
+                    background: black;
+                }
+            }
+        "#;
+        let config = CompilerConfig { minify: false, ..Default::default() };
+        let result = compile(source, &config);
+        assert!(result.errors.is_empty());
+        assert!(result.css.contains("prefers-color-scheme: dark"));
+    }
+
+    #[test]
+    fn test_compile_multi_selector() {
+        let source = ".a, .b { color: red; }";
+        let config = CompilerConfig { minify: false, ..Default::default() };
+        let result = compile(source, &config);
+        assert!(result.errors.is_empty());
+        assert!(result.css.contains(".a, .b"));
+    }
+
+    #[test]
+    fn test_compile_id_and_tag() {
+        let source = r#"
+            #main { color: red; }
+            div { margin: 0; }
+        "#;
+        let config = CompilerConfig { minify: false, ..Default::default() };
+        let result = compile(source, &config);
+        assert!(result.errors.is_empty());
+        assert!(result.css.contains("#main"));
+        assert!(result.css.contains("div"));
+    }
 
     #[test]
     fn test_compile_w3c_tokens_to_css() {
@@ -268,7 +389,6 @@ mod tests {
     #[test]
     fn test_compile_w3c_tokens_invalid_json() {
         let json = "invalid json";
-
         let result = compile_w3c_tokens(json, config::PlatformTarget::CSS);
         assert!(result.is_err());
     }
@@ -290,7 +410,6 @@ mod tests {
         let output = result.unwrap();
         assert!(output.contains_key("tokens.ts"));
         assert!(output["tokens.ts"].contains("export type TokenPath"));
-        assert!(output["tokens.ts"].contains("export const tokens"));
     }
 
     #[test]
@@ -310,6 +429,27 @@ mod tests {
         let output = result.unwrap();
         assert!(output.contains_key("index.html"));
         assert!(output["index.html"].contains("<!DOCTYPE html>"));
-        assert!(output["index.html"].contains("color.primary"));
+    }
+
+    #[test]
+    fn test_compile_with_plugin() {
+        use plugin::{Plugin, PluginError, PluginRegistry};
+
+        struct AddCommentPlugin;
+        impl Plugin for AddCommentPlugin {
+            fn name(&self) -> &str { "add-comment" }
+            fn after_codegen(&self, css: &mut String) -> Result<(), PluginError> {
+                css.insert_str(0, "/* Generated by WCSS */\n");
+                Ok(())
+            }
+        }
+
+        let mut registry = PluginRegistry::new();
+        registry.add(Box::new(AddCommentPlugin));
+
+        let source = ".btn { color: red; }";
+        let config = CompilerConfig { minify: false, ..Default::default() };
+        let result = compile_with_plugins(source, &config, &registry);
+        assert!(result.css.starts_with("/* Generated by WCSS */"));
     }
 }

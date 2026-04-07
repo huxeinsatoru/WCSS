@@ -3,7 +3,6 @@ use crate::config::CompilerConfig;
 use crate::error::CompilerError;
 
 /// Validate a stylesheet against the compiler configuration.
-/// Returns a list of validation errors.
 pub fn validate(stylesheet: &StyleSheet, config: &CompilerConfig) -> Vec<CompilerError> {
     let mut errors = Vec::new();
 
@@ -11,7 +10,52 @@ pub fn validate(stylesheet: &StyleSheet, config: &CompilerConfig) -> Vec<Compile
         validate_rule(rule, config, &mut errors);
     }
 
+    // Validate at-rules
+    for at_rule in &stylesheet.at_rules {
+        validate_at_rule(at_rule, config, &mut errors);
+    }
+
     errors
+}
+
+fn validate_at_rule(at_rule: &AtRule, config: &CompilerConfig, errors: &mut Vec<CompilerError>) {
+    match at_rule {
+        AtRule::Layer(layer) => {
+            if let Some(rules) = &layer.rules {
+                for rule in rules {
+                    validate_rule(rule, config, errors);
+                }
+            }
+        }
+        AtRule::Supports(s) => {
+            for rule in &s.rules {
+                validate_rule(rule, config, errors);
+            }
+        }
+        AtRule::Container(c) => {
+            for rule in &c.rules {
+                validate_rule(rule, config, errors);
+            }
+        }
+        AtRule::Media(m) => {
+            for rule in &m.rules {
+                validate_rule(rule, config, errors);
+            }
+        }
+        AtRule::FontFace(ff) => {
+            for decl in &ff.declarations {
+                validate_declaration(decl, config, errors);
+            }
+        }
+        AtRule::Keyframes(kf) => {
+            for keyframe in &kf.keyframes {
+                for decl in &keyframe.declarations {
+                    validate_declaration(decl, config, errors);
+                }
+            }
+        }
+        _ => {}
+    }
 }
 
 fn validate_rule(rule: &Rule, config: &CompilerConfig, errors: &mut Vec<CompilerError>) {
@@ -29,6 +73,9 @@ fn validate_rule(rule: &Rule, config: &CompilerConfig, errors: &mut Vec<Compiler
             validate_declaration(decl, config, errors);
         }
     }
+    for nested in &rule.nested_rules {
+        validate_rule(nested, config, errors);
+    }
 }
 
 fn validate_declaration(decl: &Declaration, config: &CompilerConfig, errors: &mut Vec<CompilerError>) {
@@ -39,7 +86,7 @@ fn validate_value(value: &Value, config: &CompilerConfig, errors: &mut Vec<Compi
     match value {
         Value::Token(token_ref) => {
             if config.tokens.get(&token_ref.category, &token_ref.name).is_none() {
-                let available = get_available_tokens(&config.tokens, &token_ref.category);
+                let available = config.tokens.get_category_keys(&token_ref.category);
                 let suggestion = if available.is_empty() {
                     None
                 } else {
@@ -55,6 +102,11 @@ fn validate_value(value: &Value, config: &CompilerConfig, errors: &mut Vec<Compi
         Value::List(values) => {
             for v in values {
                 validate_value(v, config, errors);
+            }
+        }
+        Value::Var(_, fallback) | Value::Env(_, fallback) => {
+            if let Some(fb) = fallback {
+                validate_value(fb, config, errors);
             }
         }
         _ => {}
@@ -87,17 +139,6 @@ fn validate_breakpoint_ref(
     }
 }
 
-fn get_available_tokens(tokens: &crate::config::DesignTokens, category: &TokenCategory) -> Vec<String> {
-    match category {
-        TokenCategory::Colors => tokens.colors.keys().cloned().collect(),
-        TokenCategory::Spacing => tokens.spacing.keys().cloned().collect(),
-        TokenCategory::Typography => tokens.typography.keys().cloned().collect(),
-        TokenCategory::Breakpoints => tokens.breakpoints.keys().cloned().collect(),
-        TokenCategory::Animation => Vec::new(), // Not yet implemented
-        TokenCategory::Custom => tokens.spacing.keys().cloned().collect(), // Fallback
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -120,10 +161,14 @@ mod tests {
             rules: vec![Rule {
                 selector: Selector {
                     class_name: "btn".to_string(),
+                    kind: SelectorKind::Class,
                     combinators: vec![],
                     pseudo_elements: vec![],
+                    pseudo_classes: vec![],
+                    attributes: vec![],
                     span: Span::empty(),
                 },
+                selectors: vec![],
                 declarations: vec![Declaration {
                     property: Property::Standard("color".to_string()),
                     value: Value::Token(TokenRef {
@@ -136,8 +181,10 @@ mod tests {
                 }],
                 states: vec![],
                 responsive: vec![],
+                nested_rules: vec![],
                 span: Span::empty(),
             }],
+            at_rules: vec![],
             span: Span::empty(),
         };
         let errors = validate(&stylesheet, &config);
@@ -151,10 +198,14 @@ mod tests {
             rules: vec![Rule {
                 selector: Selector {
                     class_name: "btn".to_string(),
+                    kind: SelectorKind::Class,
                     combinators: vec![],
                     pseudo_elements: vec![],
+                    pseudo_classes: vec![],
+                    attributes: vec![],
                     span: Span::empty(),
                 },
+                selectors: vec![],
                 declarations: vec![Declaration {
                     property: Property::Standard("color".to_string()),
                     value: Value::Token(TokenRef {
@@ -167,8 +218,10 @@ mod tests {
                 }],
                 states: vec![],
                 responsive: vec![],
+                nested_rules: vec![],
                 span: Span::empty(),
             }],
+            at_rules: vec![],
             span: Span::empty(),
         };
         let errors = validate(&stylesheet, &config);

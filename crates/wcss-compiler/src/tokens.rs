@@ -38,6 +38,9 @@ fn resolve_value_in_place(value: &mut Value, tokens: &DesignTokens) {
                 resolve_value_in_place(v, tokens);
             }
         }
+        Value::Var(_, Some(fallback)) | Value::Env(_, Some(fallback)) => {
+            resolve_value_in_place(fallback, tokens);
+        }
         _ => {} // No-op for non-token values
     }
 }
@@ -90,8 +93,13 @@ fn find_similar_token(tokens: &DesignTokens, category: &TokenCategory, name: &st
         TokenCategory::Spacing => tokens.spacing.keys().collect(),
         TokenCategory::Typography => tokens.typography.keys().collect(),
         TokenCategory::Breakpoints => tokens.breakpoints.keys().collect(),
-        TokenCategory::Animation => Vec::new(), // Not yet implemented
-        TokenCategory::Custom => tokens.spacing.keys().collect(), // Fallback
+        TokenCategory::Animation => Vec::new(),
+        TokenCategory::Shadows => tokens.shadows.keys().collect(),
+        TokenCategory::Borders => tokens.borders.keys().collect(),
+        TokenCategory::Radii => tokens.radii.keys().collect(),
+        TokenCategory::ZIndex => tokens.zindex.keys().collect(),
+        TokenCategory::Opacity => tokens.opacity.keys().collect(),
+        TokenCategory::Custom => tokens.spacing.keys().collect(),
     };
 
     candidates.into_iter()

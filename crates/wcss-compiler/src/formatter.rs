@@ -4,8 +4,17 @@ use crate::ast::*;
 pub fn format_stylesheet(stylesheet: &StyleSheet) -> String {
     let mut output = String::new();
 
+    // Format at-rules
+    for (i, at_rule) in stylesheet.at_rules.iter().enumerate() {
+        if i > 0 || !stylesheet.rules.is_empty() {
+            output.push('\n');
+        }
+        format_at_rule(&mut output, at_rule, 0);
+    }
+
+    // Format rules
     for (i, rule) in stylesheet.rules.iter().enumerate() {
-        if i > 0 {
+        if i > 0 || !stylesheet.at_rules.is_empty() {
             output.push('\n');
         }
         format_rule(&mut output, rule, 0);
@@ -14,11 +23,123 @@ pub fn format_stylesheet(stylesheet: &StyleSheet) -> String {
     output
 }
 
+fn format_at_rule(output: &mut String, at_rule: &AtRule, indent: usize) {
+    let prefix = "  ".repeat(indent);
+
+    match at_rule {
+        AtRule::Import(imp) => {
+            output.push_str(&format!("{prefix}@import \"{}\"", imp.url));
+            if let Some(ref media) = imp.media {
+                output.push(' ');
+                output.push_str(media);
+            }
+            output.push_str(";\n");
+        }
+        AtRule::Charset(charset, _) => {
+            output.push_str(&format!("{prefix}@charset \"{charset}\";\n"));
+        }
+        AtRule::Namespace(ns, _) => {
+            output.push_str(&format!("{prefix}@namespace {ns};\n"));
+        }
+        AtRule::Layer(layer) => {
+            output.push_str(&format!("{prefix}@layer {}", layer.name));
+            if let Some(rules) = &layer.rules {
+                output.push_str(" {\n");
+                for rule in rules {
+                    format_rule(output, rule, indent + 1);
+                }
+                output.push_str(&format!("{prefix}}}\n"));
+            } else {
+                output.push_str(";\n");
+            }
+        }
+        AtRule::Keyframes(kf) => {
+            output.push_str(&format!("{prefix}@keyframes {} {{\n", kf.name));
+            for keyframe in &kf.keyframes {
+                let inner = "  ".repeat(indent + 1);
+                output.push_str(&inner);
+                for (i, sel) in keyframe.selectors.iter().enumerate() {
+                    if i > 0 { output.push_str(", "); }
+                    match sel {
+                        KeyframeSelector::From => output.push_str("from"),
+                        KeyframeSelector::To => output.push_str("to"),
+                        KeyframeSelector::Percentage(p) => {
+                            if *p == (*p as i64) as f64 {
+                                output.push_str(&format!("{}%", *p as i64));
+                            } else {
+                                output.push_str(&format!("{p}%"));
+                            }
+                        }
+                    }
+                }
+                output.push_str(" {\n");
+                let decl_prefix = "  ".repeat(indent + 2);
+                for decl in &keyframe.declarations {
+                    format_declaration(output, decl, &decl_prefix);
+                }
+                output.push_str(&format!("{inner}}}\n"));
+            }
+            output.push_str(&format!("{prefix}}}\n"));
+        }
+        AtRule::FontFace(ff) => {
+            output.push_str(&format!("{prefix}@font-face {{\n"));
+            let inner = "  ".repeat(indent + 1);
+            for decl in &ff.declarations {
+                format_declaration(output, decl, &inner);
+            }
+            output.push_str(&format!("{prefix}}}\n"));
+        }
+        AtRule::Supports(s) => {
+            output.push_str(&format!("{prefix}@supports ({}) {{\n", s.condition));
+            for rule in &s.rules {
+                format_rule(output, rule, indent + 1);
+            }
+            output.push_str(&format!("{prefix}}}\n"));
+        }
+        AtRule::Container(c) => {
+            output.push_str(&format!("{prefix}@container "));
+            if let Some(name) = &c.name {
+                output.push_str(name);
+                output.push(' ');
+            }
+            output.push_str(&format!("({}) {{\n", c.condition));
+            for rule in &c.rules {
+                format_rule(output, rule, indent + 1);
+            }
+            output.push_str(&format!("{prefix}}}\n"));
+        }
+        AtRule::Media(m) => {
+            output.push_str(&format!("{prefix}@media {} {{\n", m.query));
+            for rule in &m.rules {
+                format_rule(output, rule, indent + 1);
+            }
+            output.push_str(&format!("{prefix}}}\n"));
+        }
+        AtRule::Property(p) => {
+            output.push_str(&format!("{prefix}@property {} {{\n", p.name));
+            let inner = "  ".repeat(indent + 1);
+            if let Some(ref syntax) = p.syntax {
+                output.push_str(&format!("{inner}syntax: \"{syntax}\";\n"));
+            }
+            if let Some(inherits) = p.inherits {
+                output.push_str(&format!("{inner}inherits: {};\n", if inherits { "true" } else { "false" }));
+            }
+            if let Some(ref initial) = p.initial_value {
+                output.push_str(&format!("{inner}initial-value: {initial};\n"));
+            }
+            output.push_str(&format!("{prefix}}}\n"));
+        }
+    }
+}
+
 fn format_rule(output: &mut String, rule: &Rule, indent: usize) {
     let prefix = "  ".repeat(indent);
 
     // Selector
-    output.push_str(&format!("{prefix}.{}", format_selector(&rule.selector)));
+    output.push_str(&format!("{prefix}{}", format_full_selector(&rule.selector)));
+    for sel in &rule.selectors {
+        output.push_str(&format!(", {}", format_full_selector(sel)));
+    }
     output.push_str(" {\n");
 
     let inner_prefix = "  ".repeat(indent + 1);
@@ -55,6 +176,12 @@ fn format_rule(output: &mut String, rule: &Rule, indent: usize) {
         output.push_str(&format!("{inner_prefix}}}\n"));
     }
 
+    // Nested rules
+    for nested in &rule.nested_rules {
+        output.push('\n');
+        format_rule(output, nested, indent + 1);
+    }
+
     output.push_str(&format!("{prefix}}}\n"));
 }
 
@@ -65,31 +192,121 @@ fn format_declaration(output: &mut String, decl: &Declaration, prefix: &str) {
     output.push_str(&format!("{prefix}{prop}: {val}{important};\n"));
 }
 
-fn format_selector(selector: &Selector) -> String {
-    let mut result = selector.class_name.clone();
+fn format_full_selector(selector: &Selector) -> String {
+    let mut result = String::new();
 
-    for combinator in &selector.combinators {
-        match combinator {
-            Combinator::Descendant(sel) => {
-                result.push_str(&format!(" .{}", format_selector(sel)));
+    match selector.kind {
+        SelectorKind::Class => {
+            result.push('.');
+            result.push_str(&selector.class_name);
+        }
+        SelectorKind::Id => {
+            result.push('#');
+            result.push_str(&selector.class_name);
+        }
+        SelectorKind::Tag => {
+            result.push_str(&selector.class_name);
+        }
+        SelectorKind::Universal => {
+            result.push('*');
+        }
+        SelectorKind::Nesting => {
+            result.push('&');
+        }
+        SelectorKind::Attribute => {}
+    }
+
+    for attr in &selector.attributes {
+        result.push('[');
+        result.push_str(&attr.name);
+        if let Some(ref op) = attr.operator {
+            match op {
+                AttributeOp::Equals => result.push('='),
+                AttributeOp::Contains => result.push_str("~="),
+                AttributeOp::DashMatch => result.push_str("|="),
+                AttributeOp::Prefix => result.push_str("^="),
+                AttributeOp::Suffix => result.push_str("$="),
+                AttributeOp::Substring => result.push_str("*="),
             }
-            Combinator::Child(sel) => {
-                result.push_str(&format!(" > .{}", format_selector(sel)));
-            }
-            Combinator::Adjacent(sel) => {
-                result.push_str(&format!(" + .{}", format_selector(sel)));
-            }
-            Combinator::Sibling(sel) => {
-                result.push_str(&format!(" ~ .{}", format_selector(sel)));
+            if let Some(ref val) = attr.value {
+                result.push('"');
+                result.push_str(val);
+                result.push('"');
             }
         }
+        result.push(']');
+    }
+
+    for pc in &selector.pseudo_classes {
+        result.push_str(&format_pseudo_class(pc));
     }
 
     for pe in &selector.pseudo_elements {
         result.push_str(&format!("::{}", pseudo_element_name(pe)));
     }
 
+    for combinator in &selector.combinators {
+        match combinator {
+            Combinator::Descendant(sel) => {
+                result.push_str(&format!(" {}", format_full_selector(sel)));
+            }
+            Combinator::Child(sel) => {
+                result.push_str(&format!(" > {}", format_full_selector(sel)));
+            }
+            Combinator::Adjacent(sel) => {
+                result.push_str(&format!(" + {}", format_full_selector(sel)));
+            }
+            Combinator::Sibling(sel) => {
+                result.push_str(&format!(" ~ {}", format_full_selector(sel)));
+            }
+        }
+    }
+
     result
+}
+
+fn format_pseudo_class(pc: &PseudoClass) -> String {
+    match pc {
+        PseudoClass::Hover => ":hover".to_string(),
+        PseudoClass::Focus => ":focus".to_string(),
+        PseudoClass::FocusVisible => ":focus-visible".to_string(),
+        PseudoClass::FocusWithin => ":focus-within".to_string(),
+        PseudoClass::Active => ":active".to_string(),
+        PseudoClass::Visited => ":visited".to_string(),
+        PseudoClass::Link => ":link".to_string(),
+        PseudoClass::Disabled => ":disabled".to_string(),
+        PseudoClass::Enabled => ":enabled".to_string(),
+        PseudoClass::Checked => ":checked".to_string(),
+        PseudoClass::Indeterminate => ":indeterminate".to_string(),
+        PseudoClass::Required => ":required".to_string(),
+        PseudoClass::Optional => ":optional".to_string(),
+        PseudoClass::Valid => ":valid".to_string(),
+        PseudoClass::Invalid => ":invalid".to_string(),
+        PseudoClass::ReadOnly => ":read-only".to_string(),
+        PseudoClass::ReadWrite => ":read-write".to_string(),
+        PseudoClass::PlaceholderShown => ":placeholder-shown".to_string(),
+        PseudoClass::Default => ":default".to_string(),
+        PseudoClass::FirstChild => ":first-child".to_string(),
+        PseudoClass::LastChild => ":last-child".to_string(),
+        PseudoClass::OnlyChild => ":only-child".to_string(),
+        PseudoClass::FirstOfType => ":first-of-type".to_string(),
+        PseudoClass::LastOfType => ":last-of-type".to_string(),
+        PseudoClass::OnlyOfType => ":only-of-type".to_string(),
+        PseudoClass::Empty => ":empty".to_string(),
+        PseudoClass::Root => ":root".to_string(),
+        PseudoClass::Dark => ":dark".to_string(),
+        PseudoClass::NthChild(s) => format!(":nth-child({s})"),
+        PseudoClass::NthLastChild(s) => format!(":nth-last-child({s})"),
+        PseudoClass::NthOfType(s) => format!(":nth-of-type({s})"),
+        PseudoClass::NthLastOfType(s) => format!(":nth-last-of-type({s})"),
+        PseudoClass::Not(s) => format!(":not({s})"),
+        PseudoClass::Is(s) => format!(":is({s})"),
+        PseudoClass::Where(s) => format!(":where({s})"),
+        PseudoClass::Has(s) => format!(":has({s})"),
+        PseudoClass::Lang(s) => format!(":lang({s})"),
+        PseudoClass::Dir(s) => format!(":dir({s})"),
+        PseudoClass::Custom(s) => format!(":{s}"),
+    }
 }
 
 fn format_value(value: &Value) -> String {
@@ -115,11 +332,40 @@ fn format_value(value: &Value) -> String {
             Color::Rgba(r, g, b, a) => format!("rgba({r}, {g}, {b}, {a})"),
             Color::Hsl(h, s, l) => format!("hsl({h}, {s}%, {l}%)"),
             Color::Hsla(h, s, l, a) => format!("hsla({h}, {s}%, {l}%, {a})"),
+            Color::Hwb(h, w, b) => format!("hwb({h} {w}% {b}%)"),
+            Color::Lab(l, a, b) => format!("lab({l} {a} {b})"),
+            Color::Lch(l, c, h) => format!("lch({l} {c} {h})"),
+            Color::Oklch(l, c, h) => format!("oklch({l} {c} {h})"),
+            Color::Oklab(l, a, b) => format!("oklab({l} {a} {b})"),
             Color::Named(name) => name.clone(),
+            Color::ColorMix(expr) => format!("color-mix({expr})"),
+            Color::LightDark(light, dark) => {
+                format!("light-dark({}, {})", format_color(light), format_color(dark))
+            }
+            Color::CurrentColor => "currentColor".to_string(),
+            Color::Transparent => "transparent".to_string(),
         },
         Value::Computed(expr) => format_expr(expr),
         Value::List(values) => values.iter().map(format_value).collect::<Vec<_>>().join(" "),
+        Value::Var(name, fallback) => {
+            if let Some(fb) = fallback {
+                format!("var({name}, {})", format_value(fb))
+            } else {
+                format!("var({name})")
+            }
+        }
+        Value::Env(name, fallback) => {
+            if let Some(fb) = fallback {
+                format!("env({name}, {})", format_value(fb))
+            } else {
+                format!("env({name})")
+            }
+        }
     }
+}
+
+fn format_color(color: &Color) -> String {
+    format_value(&Value::Color(color.clone()))
 }
 
 fn format_expr(expr: &Expr) -> String {
@@ -140,12 +386,30 @@ fn state_modifier_name(modifier: &StateModifier) -> &str {
     match modifier {
         StateModifier::Hover => "hover",
         StateModifier::Focus => "focus",
+        StateModifier::FocusVisible => "focus-visible",
+        StateModifier::FocusWithin => "focus-within",
         StateModifier::Active => "active",
         StateModifier::Visited => "visited",
         StateModifier::Disabled => "disabled",
+        StateModifier::Enabled => "enabled",
         StateModifier::Checked => "checked",
+        StateModifier::Indeterminate => "indeterminate",
+        StateModifier::Required => "required",
+        StateModifier::Optional => "optional",
+        StateModifier::Valid => "valid",
+        StateModifier::Invalid => "invalid",
+        StateModifier::ReadOnly => "read-only",
+        StateModifier::ReadWrite => "read-write",
+        StateModifier::PlaceholderShown => "placeholder-shown",
+        StateModifier::Default => "default",
         StateModifier::FirstChild => "first-child",
         StateModifier::LastChild => "last-child",
+        StateModifier::OnlyChild => "only-child",
+        StateModifier::FirstOfType => "first-of-type",
+        StateModifier::LastOfType => "last-of-type",
+        StateModifier::OnlyOfType => "only-of-type",
+        StateModifier::Empty => "empty",
+        StateModifier::Dark => "dark",
         StateModifier::Custom(s) => s,
     }
 }
@@ -158,6 +422,14 @@ fn pseudo_element_name(pe: &PseudoElement) -> &str {
         PseudoElement::FirstLetter => "first-letter",
         PseudoElement::Placeholder => "placeholder",
         PseudoElement::Selection => "selection",
+        PseudoElement::Marker => "marker",
+        PseudoElement::Backdrop => "backdrop",
+        PseudoElement::Cue => "cue",
+        PseudoElement::CueRegion => "cue-region",
+        PseudoElement::GrammarError => "grammar-error",
+        PseudoElement::SpellingError => "spelling-error",
+        PseudoElement::TargetText => "target-text",
+        PseudoElement::FileSelectorButton => "file-selector-button",
         PseudoElement::Custom(s) => s,
     }
 }
@@ -172,10 +444,14 @@ mod tests {
             rules: vec![Rule {
                 selector: Selector {
                     class_name: "btn".to_string(),
+                    kind: SelectorKind::Class,
                     combinators: vec![],
                     pseudo_elements: vec![],
+                    pseudo_classes: vec![],
+                    attributes: vec![],
                     span: Span::empty(),
                 },
+                selectors: vec![],
                 declarations: vec![Declaration {
                     property: Property::Standard("color".to_string()),
                     value: Value::Literal("red".to_string()),
@@ -184,8 +460,10 @@ mod tests {
                 }],
                 states: vec![],
                 responsive: vec![],
+                nested_rules: vec![],
                 span: Span::empty(),
             }],
+            at_rules: vec![],
             span: Span::empty(),
         };
 
@@ -193,5 +471,38 @@ mod tests {
         assert!(formatted.contains(".btn {"));
         assert!(formatted.contains("  color: red;"));
         assert!(formatted.contains("}"));
+    }
+
+    #[test]
+    fn test_format_id_selector() {
+        let stylesheet = StyleSheet {
+            rules: vec![Rule {
+                selector: Selector {
+                    class_name: "main".to_string(),
+                    kind: SelectorKind::Id,
+                    combinators: vec![],
+                    pseudo_elements: vec![],
+                    pseudo_classes: vec![],
+                    attributes: vec![],
+                    span: Span::empty(),
+                },
+                selectors: vec![],
+                declarations: vec![Declaration {
+                    property: Property::Standard("color".to_string()),
+                    value: Value::Literal("red".to_string()),
+                    important: false,
+                    span: Span::empty(),
+                }],
+                states: vec![],
+                responsive: vec![],
+                nested_rules: vec![],
+                span: Span::empty(),
+            }],
+            at_rules: vec![],
+            span: Span::empty(),
+        };
+
+        let formatted = format_stylesheet(&stylesheet);
+        assert!(formatted.contains("#main {"));
     }
 }
