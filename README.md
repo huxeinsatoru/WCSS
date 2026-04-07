@@ -8,6 +8,7 @@ A CSS compiler built with Rust and WebAssembly. Compiles in microseconds, output
 
 - **Fast compilation** - Rust-based compiler with WebAssembly (1.73ms for 5000 rules with tree-shaking)
 - **Full CSS spec support** - All selectors (#id, .class, [attr], :pseudo), at-rules (@keyframes, @layer, @media, @container), 55+ units, 40+ pseudo-classes
+- **Modern CSS syntax** - Space-separated colors (hsl/rgb with slash alpha), vendor prefixes, modern properties
 - **Automatic tree shaking** - Auto-scan HTML/JSX/TSX/Vue/Svelte files for used classes (98% size reduction)
 - **CSS Modules** - Local scoping with `.module.wcss`, class hashing, `:local()/:global()`, `composes:` support
 - **Bundle Analyzer** - Tree-shaking stats per component, size analysis, top 10 largest rules
@@ -179,6 +180,55 @@ Use in styles:
 ```
 
 ## Language Features
+
+### Modern CSS Syntax Support
+
+WCSS parser now supports modern CSS syntax for production use:
+
+**Modern Color Syntax:**
+```wcss
+.card {
+  /* Modern space-separated with slash for alpha */
+  background: hsl(240 2% 12% / 0.82);
+  color: rgb(255 0 0 / 0.5);
+  
+  /* Legacy comma-separated (still supported) */
+  border: 1px solid hsla(240, 2%, 12%, 0.82);
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+```
+
+**Vendor Prefixes:**
+```wcss
+.glass {
+  /* All vendor prefixes supported */
+  -webkit-backdrop-filter: blur(48px);
+  -moz-backdrop-filter: blur(48px);
+  backdrop-filter: blur(48px);
+  
+  -webkit-transform: translateY(0);
+  -moz-transform: translateY(0);
+  -ms-transform: translateY(0);
+  transform: translateY(0);
+}
+```
+
+**Modern Properties:**
+```wcss
+.modern {
+  /* Shorthand properties */
+  inset: 0;  /* top, right, bottom, left */
+  
+  /* Performance hints */
+  will-change: transform;
+  
+  /* Transform utilities */
+  transform-origin: center bottom;
+  
+  /* Box model */
+  box-sizing: content-box;
+}
+```
 
 ### Automatic Content Scanning
 
