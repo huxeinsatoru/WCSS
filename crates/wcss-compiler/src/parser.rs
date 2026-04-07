@@ -181,17 +181,24 @@ impl<'a> Parser<'a> {
         }
     }
 
-    /// Read a CSS identifier that may start with -- (custom properties).
+    /// Read a CSS identifier that may start with -- (custom properties) or vendor prefixes (-webkit-, -moz-, etc).
     fn read_css_identifier(&mut self) -> Option<String> {
         let start = self.pos;
-        // Allow leading --
-        if self.pos + 1 < self.bytes.len()
-            && self.bytes[self.pos] == b'-'
-            && self.bytes[self.pos + 1] == b'-'
-        {
-            self.pos += 2;
-            self.column += 2;
+        
+        // Allow leading - for vendor prefixes (-webkit-, -moz-, -ms-, -o-)
+        // or -- for custom properties
+        if self.pos < self.bytes.len() && self.bytes[self.pos] == b'-' {
+            self.pos += 1;
+            self.column += 1;
+            
+            // Check for second - (custom property)
+            if self.pos < self.bytes.len() && self.bytes[self.pos] == b'-' {
+                self.pos += 1;
+                self.column += 1;
+            }
         }
+        
+        // Read the rest of the identifier
         while self.pos < self.bytes.len() {
             let b = self.bytes[self.pos];
             if b.is_ascii_alphanumeric() || b == b'-' || b == b'_' {
@@ -201,6 +208,7 @@ impl<'a> Parser<'a> {
                 break;
             }
         }
+        
         if self.pos > start {
             Some(self.source[start..self.pos].to_string())
         } else {
@@ -1420,6 +1428,20 @@ impl<'a> Parser<'a> {
                 if self.pos + 4 <= self.bytes.len() && &self.bytes[self.pos..self.pos+4] == b"env(" {
                     return self.parse_env_function();
                 }
+                
+                // Check for color functions: rgb(), rgba(), hsl(), hsla()
+                if self.pos + 4 <= self.bytes.len() {
+                    let prefix = &self.bytes[self.pos..self.pos+4];
+                    if prefix == b"rgb(" || prefix == b"hsl(" {
+                        return self.parse_color_function();
+                    }
+                }
+                if self.pos + 5 <= self.bytes.len() {
+                    let prefix = &self.bytes[self.pos..self.pos+5];
+                    if prefix == b"rgba(" || prefix == b"hsla(" {
+                        return self.parse_color_function();
+                    }
+                }
 
                 // Read until semicolon, closing brace, or newline
                 let start = self.pos;
@@ -1535,6 +1557,166 @@ impl<'a> Parser<'a> {
         }
         let hex = self.source[start..self.pos].to_string();
         Ok(Value::Color(Color::Hex(hex)))
+    }
+
+    /// Parse color functions: rgb(), rgba(), hsl(), hsla()
+    /// Supports both modern (space-separated with slash) and legacy (comma-separated) syntax:
+    /// - Modern: rgb(255 0 0 / 0.5), hsl(120 100% 50% / 0.8)
+    /// - Legacy: rgba(255, 0, 0, 0.5), hsla(120, 100%, 50%, 0.8)
+    fn parse_color_function(&mut self) -> Result<Value, CompilerError> {
+        let start_pos = self.pos;
+        
+        // Read function name
+        let func_start = self.pos;
+        while self.pos < self.bytes.len() && self.bytes[self.pos] != b'(' {
+            self.pos += 1;
+            self.column += 1;
+        }
+        let func_name = &self.source[func_start..self.pos];
+        
+        self.expect('(')?;
+        self.skip_whitespace();
+        
+        // Read all content until closing paren
+        let content_start = self.pos;
+        let mut paren_depth = 1;
+        while self.pos < self.bytes.len() && paren_depth > 0 {
+            match self.bytes[self.pos] {
+                b'(' => paren_depth += 1,
+                b')' => paren_depth -= 1,
+                b'\n' => {
+                    self.line += 1;
+                    self.column = 1;
+                    self.pos += 1;
+                    continue;
+                }
+                _ => {}
+            }
+            if paren_depth > 0 {
+                self.pos += 1;
+                self.column += 1;
+            }
+        }
+        
+        if paren_depth != 0 {
+            return Err(CompilerError::syntax(
+                format!("Unclosed {}()", func_name),
+                Span::new(start_pos, self.pos, self.line, self.column)
+            ));
+        }
+        
+        let content = self.source[content_start..self.pos].trim();
+        self.pos += 1; // skip closing ')'
+        self.column += 1;
+        
+        // Parse the content
+        match func_name {
+            "rgb" | "rgba" => self.parse_rgb_content(content, func_name),
+            "hsl" | "hsla" => self.parse_hsl_content(content, func_name),
+            _ => Ok(Value::Literal(format!("{}({})", func_name, content)))
+        }
+    }
+    
+    fn parse_rgb_content(&mut self, content: &str, func_name: &str) -> Result<Value, CompilerError> {
+        // Check if modern syntax (space-separated with optional slash for alpha)
+        let has_slash = content.contains('/');
+        let has_comma = content.contains(',');
+        
+        if has_slash || (!has_comma && content.split_whitespace().count() >= 3) {
+            // Modern syntax: rgb(255 0 0 / 0.5) or rgb(255 0 0)
+            let parts: Vec<&str> = if has_slash {
+                content.split('/').collect()
+            } else {
+                vec![content]
+            };
+            
+            let rgb_part = parts[0].trim();
+            let rgb_values: Vec<&str> = rgb_part.split_whitespace().collect();
+            
+            if rgb_values.len() < 3 {
+                return Ok(Value::Literal(format!("{}({})", func_name, content)));
+            }
+            
+            let r = rgb_values[0].parse::<f64>().unwrap_or(0.0);
+            let g = rgb_values[1].parse::<f64>().unwrap_or(0.0);
+            let b = rgb_values[2].parse::<f64>().unwrap_or(0.0);
+            
+            if parts.len() > 1 {
+                let alpha = parts[1].trim().parse::<f64>().unwrap_or(1.0);
+                Ok(Value::Color(Color::Rgba(r, g, b, alpha)))
+            } else {
+                Ok(Value::Color(Color::Rgb(r, g, b)))
+            }
+        } else {
+            // Legacy syntax: rgba(255, 0, 0, 0.5)
+            let parts: Vec<&str> = content.split(',').map(|s| s.trim()).collect();
+            
+            if parts.len() < 3 {
+                return Ok(Value::Literal(format!("{}({})", func_name, content)));
+            }
+            
+            let r = parts[0].parse::<f64>().unwrap_or(0.0);
+            let g = parts[1].parse::<f64>().unwrap_or(0.0);
+            let b = parts[2].parse::<f64>().unwrap_or(0.0);
+            
+            if parts.len() >= 4 {
+                let alpha = parts[3].parse::<f64>().unwrap_or(1.0);
+                Ok(Value::Color(Color::Rgba(r, g, b, alpha)))
+            } else {
+                Ok(Value::Color(Color::Rgb(r, g, b)))
+            }
+        }
+    }
+    
+    fn parse_hsl_content(&mut self, content: &str, func_name: &str) -> Result<Value, CompilerError> {
+        // Check if modern syntax (space-separated with optional slash for alpha)
+        let has_slash = content.contains('/');
+        let has_comma = content.contains(',');
+        
+        if has_slash || (!has_comma && content.split_whitespace().count() >= 3) {
+            // Modern syntax: hsl(120 100% 50% / 0.8) or hsl(120 100% 50%)
+            let parts: Vec<&str> = if has_slash {
+                content.split('/').collect()
+            } else {
+                vec![content]
+            };
+            
+            let hsl_part = parts[0].trim();
+            let hsl_values: Vec<&str> = hsl_part.split_whitespace().collect();
+            
+            if hsl_values.len() < 3 {
+                return Ok(Value::Literal(format!("{}({})", func_name, content)));
+            }
+            
+            let h = hsl_values[0].trim_end_matches("deg").parse::<f64>().unwrap_or(0.0);
+            let s = hsl_values[1].trim_end_matches('%').parse::<f64>().unwrap_or(0.0);
+            let l = hsl_values[2].trim_end_matches('%').parse::<f64>().unwrap_or(0.0);
+            
+            if parts.len() > 1 {
+                let alpha = parts[1].trim().parse::<f64>().unwrap_or(1.0);
+                Ok(Value::Color(Color::Hsla(h, s, l, alpha)))
+            } else {
+                Ok(Value::Color(Color::Hsl(h, s, l)))
+            }
+        } else {
+            // Legacy syntax: hsla(120, 100%, 50%, 0.8)
+            let parts: Vec<&str> = content.split(',').map(|s| s.trim()).collect();
+            
+            if parts.len() < 3 {
+                return Ok(Value::Literal(format!("{}({})", func_name, content)));
+            }
+            
+            let h = parts[0].trim_end_matches("deg").parse::<f64>().unwrap_or(0.0);
+            let s = parts[1].trim_end_matches('%').parse::<f64>().unwrap_or(0.0);
+            let l = parts[2].trim_end_matches('%').parse::<f64>().unwrap_or(0.0);
+            
+            if parts.len() >= 4 {
+                let alpha = parts[3].parse::<f64>().unwrap_or(1.0);
+                Ok(Value::Color(Color::Hsla(h, s, l, alpha)))
+            } else {
+                Ok(Value::Color(Color::Hsl(h, s, l)))
+            }
+        }
     }
 
     fn try_read_unit(&mut self) -> Option<Unit> {
