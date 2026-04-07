@@ -258,32 +258,54 @@ impl<'a> Parser<'a> {
             }
             // Handle scientific notation (e.g., 1e-3, 2.5e+2)
             if self.pos < self.bytes.len() && (self.bytes[self.pos] == b'e' || self.bytes[self.pos] == b'E') {
-                self.pos += 1;
-                self.column += 1;
-                if self.pos < self.bytes.len() && (self.bytes[self.pos] == b'+' || self.bytes[self.pos] == b'-') {
+                // Check if next char is +, -, or digit (valid scientific notation)
+                let next_pos = self.pos + 1;
+                let is_scientific = if next_pos < self.bytes.len() {
+                    let next_byte = self.bytes[next_pos];
+                    next_byte == b'+' || next_byte == b'-' || next_byte.is_ascii_digit()
+                } else {
+                    false
+                };
+                
+                if is_scientific {
                     self.pos += 1;
                     self.column += 1;
-                }
-                while self.pos < self.bytes.len() && self.bytes[self.pos].is_ascii_digit() {
-                    self.pos += 1;
-                    self.column += 1;
+                    if self.pos < self.bytes.len() && (self.bytes[self.pos] == b'+' || self.bytes[self.pos] == b'-') {
+                        self.pos += 1;
+                        self.column += 1;
+                    }
+                    while self.pos < self.bytes.len() && self.bytes[self.pos].is_ascii_digit() {
+                        self.pos += 1;
+                        self.column += 1;
+                    }
                 }
             }
             self.source[start..self.pos].parse().unwrap_or(0.0)
         } else {
             // Handle scientific notation for integers too
             if self.pos < self.bytes.len() && (self.bytes[self.pos] == b'e' || self.bytes[self.pos] == b'E') {
-                self.pos += 1;
-                self.column += 1;
-                if self.pos < self.bytes.len() && (self.bytes[self.pos] == b'+' || self.bytes[self.pos] == b'-') {
+                // Check if next char is +, -, or digit (valid scientific notation)
+                let next_pos = self.pos + 1;
+                let is_scientific = if next_pos < self.bytes.len() {
+                    let next_byte = self.bytes[next_pos];
+                    next_byte == b'+' || next_byte == b'-' || next_byte.is_ascii_digit()
+                } else {
+                    false
+                };
+                
+                if is_scientific {
                     self.pos += 1;
                     self.column += 1;
+                    if self.pos < self.bytes.len() && (self.bytes[self.pos] == b'+' || self.bytes[self.pos] == b'-') {
+                        self.pos += 1;
+                        self.column += 1;
+                    }
+                    while self.pos < self.bytes.len() && self.bytes[self.pos].is_ascii_digit() {
+                        self.pos += 1;
+                        self.column += 1;
+                    }
+                    return self.source[start..self.pos].parse().unwrap_or(0.0);
                 }
-                while self.pos < self.bytes.len() && self.bytes[self.pos].is_ascii_digit() {
-                    self.pos += 1;
-                    self.column += 1;
-                }
-                return self.source[start..self.pos].parse().unwrap_or(0.0);
             }
             if negative { -(int_val as f64) } else { int_val as f64 }
         }

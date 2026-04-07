@@ -161,12 +161,14 @@ proptest! {
         // Apply optimization (which includes deduplication)
         let optimized = optimize(stylesheet.clone(), &config);
         
-        // Collect all optimized class names
-        let optimized_classes: HashSet<_> = optimized
-            .rules
-            .iter()
-            .map(|r| r.selector.class_name.as_str())
-            .collect();
+        // Collect all optimized class names (including merged selectors)
+        let mut optimized_classes: HashSet<&str> = HashSet::new();
+        for rule in &optimized.rules {
+            optimized_classes.insert(rule.selector.class_name.as_str());
+            for sel in &rule.selectors {
+                optimized_classes.insert(sel.class_name.as_str());
+            }
+        }
         
         // Verify all original class names are preserved
         for original_class in &original_classes {
@@ -255,12 +257,15 @@ proptest! {
         
         let optimized = optimize(stylesheet, &config);
         
-        // Build a map for optimized stylesheet
-        let optimized_class_decls: HashMap<_, _> = optimized
-            .rules
-            .iter()
-            .map(|r| (r.selector.class_name.clone(), hash_declarations(&r.declarations)))
-            .collect();
+        // Build a map for optimized stylesheet (including merged selectors)
+        let mut optimized_class_decls: HashMap<String, String> = HashMap::new();
+        for rule in &optimized.rules {
+            let decl_hash = hash_declarations(&rule.declarations);
+            optimized_class_decls.insert(rule.selector.class_name.clone(), decl_hash.clone());
+            for sel in &rule.selectors {
+                optimized_class_decls.insert(sel.class_name.clone(), decl_hash.clone());
+            }
+        }
         
         // Verify each original class has the same declarations in optimized
         for (class_name, original_hash) in &original_class_decls {

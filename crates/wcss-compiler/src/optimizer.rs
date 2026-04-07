@@ -163,7 +163,7 @@ fn hash_declarations(declarations: &[Declaration]) -> u64 {
 /// Merge rules with identical declarations into multi-selector rules.
 fn merge_selectors(stylesheet: StyleSheet) -> StyleSheet {
     let mut merged: Vec<Rule> = Vec::new();
-    let mut decl_map: HashMap<u64, usize> = HashMap::new();
+    let mut decl_map: HashMap<u64, Vec<usize>> = HashMap::new(); // Changed to Vec<usize> to track all matching rules
 
     for rule in stylesheet.rules {
         if !rule.states.is_empty() || !rule.responsive.is_empty() || !rule.nested_rules.is_empty() {
@@ -173,28 +173,48 @@ fn merge_selectors(stylesheet: StyleSheet) -> StyleSheet {
 
         let hash = hash_declarations(&rule.declarations);
 
-        if let Some(&existing_idx) = decl_map.get(&hash) {
-            // Merge: add this rule's selector(s) to the existing rule
-            let existing = &mut merged[existing_idx];
-            if existing.states.is_empty() && existing.responsive.is_empty() && existing.nested_rules.is_empty() {
-                // Add primary selector
-                if existing.selector.class_name != rule.selector.class_name {
-                    existing.selectors.push(rule.selector);
-                }
-                // Add additional selectors
-                for sel in rule.selectors {
-                    if !existing.selectors.iter().any(|s| s.class_name == sel.class_name)
-                        && existing.selector.class_name != sel.class_name
-                    {
-                        existing.selectors.push(sel);
+        if let Some(existing_indices) = decl_map.get_mut(&hash) {
+            // Try to find an existing rule that doesn't already have this class name
+            let mut merged_into_existing = false;
+            
+            for &existing_idx in existing_indices.iter() {
+                let existing = &merged[existing_idx];
+                
+                // Check if this class name is already in the existing rule
+                let class_already_exists = existing.selector.class_name == rule.selector.class_name
+                    || existing.selectors.iter().any(|s| s.class_name == rule.selector.class_name);
+                
+                if !class_already_exists {
+                    // Merge: add this rule's selector(s) to the existing rule
+                    let existing = &mut merged[existing_idx];
+                    
+                    // Add primary selector
+                    existing.selectors.push(rule.selector.clone());
+                    
+                    // Add additional selectors
+                    for sel in &rule.selectors {
+                        if !existing.selectors.iter().any(|s| s.class_name == sel.class_name)
+                            && existing.selector.class_name != sel.class_name
+                        {
+                            existing.selectors.push(sel.clone());
+                        }
                     }
+                    
+                    merged_into_existing = true;
+                    break;
                 }
-                continue;
             }
+            
+            if !merged_into_existing {
+                // This is a new rule with the same declarations but different class name
+                // that couldn't be merged into existing rules (maybe due to duplicates)
+                existing_indices.push(merged.len());
+                merged.push(rule);
+            }
+        } else {
+            decl_map.insert(hash, vec![merged.len()]);
+            merged.push(rule);
         }
-
-        decl_map.insert(hash, merged.len());
-        merged.push(rule);
     }
 
     StyleSheet {
