@@ -8,7 +8,7 @@ A CSS compiler built with Rust and WebAssembly. Compiles in microseconds, output
 
 - **Fast compilation** - Rust-based compiler with WebAssembly (1.73ms for 5000 rules with tree-shaking)
 - **Full CSS spec support** - All selectors (#id, .class, [attr], :pseudo), at-rules (@keyframes, @layer, @media, @container), 55+ units, 40+ pseudo-classes
-- **Tree shaking** - Remove unused CSS classes (98% size reduction)
+- **Automatic tree shaking** - Auto-scan HTML/JSX/TSX/Vue/Svelte files for used classes (98% size reduction)
 - **CSS Modules** - Local scoping with `.module.wcss`, class hashing, `:local()/:global()`, `composes:` support
 - **Bundle Analyzer** - Tree-shaking stats per component, size analysis, top 10 largest rules
 - **VS Code LSP** - Autocomplete, diagnostics, hover info, formatting support
@@ -179,6 +179,40 @@ Use in styles:
 ```
 
 ## Language Features
+
+### Automatic Content Scanning
+
+WCSS automatically scans your source files to detect which CSS classes are used, enabling tree-shaking without manual configuration (similar to Tailwind JIT):
+
+```javascript
+// wcss.config.js
+export default {
+  treeShaking: true,
+  contentPaths: [
+    'src/**/*.{html,jsx,tsx,vue,svelte}',
+    'components/**/*.{js,ts}'
+  ],
+  // Optional: safelist patterns for dynamic classes
+  safelist: [
+    /^btn-/,      // Keep all btn-* classes
+    /^text-/,     // Keep all text-* classes
+  ]
+};
+```
+
+**Supported file formats:**
+- HTML: `<div class="btn primary">`
+- JSX/TSX: `<button className="btn-large hover:bg-blue">`
+- Vue: `<div :class="['btn', 'primary']">`
+- Svelte: `<div class:active class:btn>`
+- Template literals: `className={\`btn ${variant}\`}`
+
+**Features:**
+- Automatic class extraction from source files
+- Glob pattern support for file matching
+- Safelist patterns for dynamic classes (regex)
+- Validates class names (filters invalid CSS identifiers)
+- Supports pseudo-class syntax (e.g., `hover:bg-blue`)
 
 ### CSS Modules
 
@@ -497,7 +531,23 @@ export default {
   minify: true,
   sourceMaps: false,
   treeShaking: true,
+  
+  // Automatic content scanning (NEW!)
+  contentPaths: [
+    'src/**/*.{html,jsx,tsx,vue,svelte}',
+    'pages/**/*.{js,ts}',
+  ],
+  
+  // Safelist patterns for dynamic classes (NEW!)
+  safelist: [
+    /^btn-/,        // Keep all btn-* classes
+    /^text-/,       // Keep all text-* classes
+    'active',       // Keep specific class
+  ],
+  
+  // Manual class list (fallback if contentPaths not provided)
   usedClasses: [],
+  
   typedOM: false,
   
   // Plugin system
