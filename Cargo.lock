@@ -252,6 +252,45 @@ dependencies = [
 ]
 
 [[package]]
+name = "euis-cli"
+version = "0.5.0"
+dependencies = [
+ "clap",
+ "colored",
+ "euis-compiler",
+ "glob",
+ "notify",
+ "serde_json",
+]
+
+[[package]]
+name = "euis-compiler"
+version = "0.5.0"
+dependencies = [
+ "glob",
+ "proptest",
+ "rayon",
+ "regex",
+ "serde",
+ "serde_json",
+ "tempfile",
+]
+
+[[package]]
+name = "euis-wasm"
+version = "0.5.0"
+dependencies = [
+ "euis-compiler",
+ "serde",
+ "serde-wasm-bindgen",
+ "serde_json",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+ "wasm-bindgen-test",
+ "web-sys",
+]
+
+[[package]]
 name = "fastrand"
 version = "2.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1102,45 +1141,6 @@ dependencies = [
  "hashbrown 0.15.5",
  "indexmap",
  "semver",
-]
-
-[[package]]
-name = "wcss-cli"
-version = "0.5.0"
-dependencies = [
- "clap",
- "colored",
- "glob",
- "notify",
- "serde_json",
- "wcss-compiler",
-]
-
-[[package]]
-name = "wcss-compiler"
-version = "0.5.0"
-dependencies = [
- "glob",
- "proptest",
- "rayon",
- "regex",
- "serde",
- "serde_json",
- "tempfile",
-]
-
-[[package]]
-name = "wcss-wasm"
-version = "0.5.0"
-dependencies = [
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "wasm-bindgen",
- "wasm-bindgen-futures",
- "wasm-bindgen-test",
- "wcss-compiler",
- "web-sys",
 ]
 
 [[package]]

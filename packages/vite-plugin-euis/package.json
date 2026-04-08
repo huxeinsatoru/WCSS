@@ -1,0 +1,55 @@
+{
+  "name": "vite-plugin-euis",
+  "version": "0.6.0",
+  "type": "module",
+  "description": "Vite plugin for Euis (Euis) with Tailwind CSS compatibility - compile Euis to CSS with WebAssembly. Works in cloud environments like Lovable, StackBlitz, and CodeSandbox.",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc && cp src/euis.d.ts dist/euis.d.ts",
+    "dev": "tsc --watch",
+    "test": "jest"
+  },
+  "keywords": [
+    "euis",
+    "css",
+    "compiler",
+    "vite",
+    "vite-plugin",
+    "wasm",
+    "webassembly",
+    "build-tool",
+    "lovable",
+    "stackblitz",
+    "codesandbox",
+    "cloud-ide"
+  ],
+  "author": "Huxeinsatoru",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/huxeinsatoru/Euis.git",
+    "directory": "packages/vite-plugin-euis"
+  },
+  "homepage": "https://github.com/huxeinsatoru/Euis#readme",
+  "bugs": {
+    "url": "https://github.com/huxeinsatoru/Euis/issues"
+  },
+  "peerDependencies": {
+    "vite": "^4.0.0 || ^5.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "typescript": "^5.3.2",
+    "vite": "^5.0.0",
+    "jest": "^29.7.0",
+    "@types/jest": "^29.5.8",
+    "ts-jest": "^29.1.1"
+  },
+  "dependencies": {
+    "@euis/wasm": "^0.5.0"
+  }
+}

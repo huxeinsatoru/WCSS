@@ -1,18 +1,18 @@
 use std::fs;
 use std::time::Instant;
-use wcss_compiler::config::CompilerConfig;
+use euis_compiler::config::CompilerConfig;
 
 fn main() {
-    let input = fs::read_to_string("small_test.wcss")
+    let input = fs::read_to_string("small_test.euis")
         .expect("Failed to read file");
     
     let config = CompilerConfig::default();
     
-    println!("Small WCSS test: {} bytes, 2 rules", input.len());
+    println!("Small Euis test: {} bytes, 2 rules", input.len());
     
     // Single run first
     let start = Instant::now();
-    let result = wcss_compiler::compile(&input, &config);
+    let result = euis_compiler::compile(&input, &config);
     let single_time = start.elapsed();
     
     println!("Single compile: {}μs", single_time.as_micros());
@@ -23,7 +23,7 @@ fn main() {
     let start = Instant::now();
     
     for _ in 0..iterations {
-        let _ = wcss_compiler::compile(&input, &config);
+        let _ = euis_compiler::compile(&input, &config);
     }
     
     let elapsed = start.elapsed();

@@ -1,5 +1,5 @@
 {
-  "name": "test-vite-wcss",
+  "name": "test-vite-euis",
   "version": "1.0.0",
   "type": "module",
   "scripts": {
@@ -10,6 +10,6 @@
     "vite": "^5.0.0"
   },
   "dependencies": {
-    "vite-plugin-wcss": "file:../packages/vite-plugin-wcss"
+    "vite-plugin-euis": "file:../packages/vite-plugin-euis"
   }
 }

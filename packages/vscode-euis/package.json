@@ -1,0 +1,74 @@
+{
+  "name": "vscode-euis",
+  "displayName": "Euis Language Support",
+  "description": "Syntax highlighting, IntelliSense, and error reporting for Euis files",
+  "version": "0.1.0",
+  "publisher": "euis",
+  "engines": {
+    "vscode": "^1.74.0"
+  },
+  "categories": [
+    "Programming Languages",
+    "Formatters",
+    "Linters"
+  ],
+  "keywords": [
+    "euis",
+    "css",
+    "styling"
+  ],
+  "activationEvents": [
+    "onLanguage:euis"
+  ],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "languages": [
+      {
+        "id": "euis",
+        "aliases": [
+          "Euis",
+          "euis"
+        ],
+        "extensions": [
+          ".euis"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "euis",
+        "scopeName": "source.euis",
+        "path": "./syntaxes/euis.tmLanguage.json"
+      }
+    ],
+    "commands": [
+      {
+        "command": "euis.format",
+        "title": "Format Euis",
+        "category": "Euis"
+      }
+    ],
+    "configuration": {
+      "title": "Euis",
+      "properties": {
+        "euis.formatOnSave": {
+          "type": "boolean",
+          "default": true,
+          "description": "Format Euis files on save"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "package": "vsce package"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "@types/vscode": "^1.74.0",
+    "typescript": "^5.3.2",
+    "vsce": "^2.15.0"
+  }
+}

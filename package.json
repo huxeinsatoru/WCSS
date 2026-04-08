@@ -1,11 +1,11 @@
 {
-  "name": "wcss-workspace",
+  "name": "euis-workspace",
   "version": "0.1.0",
   "private": true,
   "description": "CSS compiler built with Rust and WebAssembly",
   "repository": {
     "type": "git",
-    "url": "https://github.com/huxeinsatoru/WCSS.git"
+    "url": "https://github.com/huxeinsatoru/Euis.git"
   },
   "keywords": [
     "css",
@@ -22,22 +22,22 @@
   ],
   "scripts": {
     "build:rust": "cargo build --release",
-    "build:wasm": "wasm-pack build crates/wcss-wasm --target bundler --out-dir ../../pkg/bundler",
-    "build:wasm:nodejs": "wasm-pack build crates/wcss-wasm --target nodejs --out-dir ../../pkg/nodejs",
+    "build:wasm": "wasm-pack build crates/euis-wasm --target bundler --out-dir ../../pkg/bundler",
+    "build:wasm:nodejs": "wasm-pack build crates/euis-wasm --target nodejs --out-dir ../../pkg/nodejs",
     "test:rust": "cargo test",
-    "build:cli": "cd packages/wcss-cli && npm run build",
-    "build:vite": "cd packages/vite-plugin-wcss && npm run build",
-    "build:webpack": "cd packages/wcss-loader && npm run build",
-    "build:next": "cd packages/next-wcss && npm run build",
-    "build:nuxt": "cd packages/nuxt-wcss && npm run build",
-    "build:cdn": "cd packages/wcss-cdn && npm run build",
-    "build:vscode": "cd packages/vscode-wcss && npm run build",
+    "build:cli": "cd packages/euis-cli && npm run build",
+    "build:vite": "cd packages/vite-plugin-euis && npm run build",
+    "build:webpack": "cd packages/euis-loader && npm run build",
+    "build:next": "cd packages/next-euis && npm run build",
+    "build:nuxt": "cd packages/nuxt-euis && npm run build",
+    "build:cdn": "cd packages/euis-cdn && npm run build",
+    "build:vscode": "cd packages/vscode-euis && npm run build",
     "build:plugin": "npm run build:vite",
     "build": "npm run build:wasm && npm run build:plugin",
     "build:all": "npm run build:rust && npm run build:cli && npm run build:vite && npm run build:webpack && npm run build:next && npm run build:cdn",
     "publish:wasm": "cd pkg/bundler && npm publish --access public",
-    "publish:plugin": "cd packages/vite-plugin-wcss && npm publish --access public",
-    "test": "cargo test && cd packages/wcss-cli && npm test"
+    "publish:plugin": "cd packages/vite-plugin-euis && npm publish --access public",
+    "test": "cargo test && cd packages/euis-cli && npm test"
   },
   "devDependencies": {
     "typescript": "^5.3.2"

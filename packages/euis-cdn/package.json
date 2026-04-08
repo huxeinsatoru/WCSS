@@ -1,0 +1,29 @@
+{
+  "name": "euis-cdn",
+  "version": "0.1.0",
+  "description": "CDN bundle for Euis framework - use Euis without a build step",
+  "main": "dist/euis-cdn.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist/"
+  ],
+  "scripts": {
+    "build": "tsc && npm run bundle",
+    "bundle": "esbuild dist/index.js --bundle --minify --outfile=dist/euis-cdn.js --format=iife --global-name=Euis",
+    "dev": "tsc --watch"
+  },
+  "keywords": [
+    "euis",
+    "css",
+    "cdn",
+    "browser",
+    "runtime"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "esbuild": "^0.19.0",
+    "typescript": "^5.3.2"
+  }
+}

@@ -1,5 +1,5 @@
 use std::time::Instant;
-use wcss_compiler::config::CompilerConfig;
+use euis_compiler::config::CompilerConfig;
 
 fn main() {
     // Create small input - single rule
@@ -7,16 +7,16 @@ fn main() {
     
     let config = CompilerConfig::default();
     
-    println!("Small WCSS test: {} bytes, 1 rule", input.len());
+    println!("Small Euis test: {} bytes, 1 rule", input.len());
     
     // Single compile first
-    let result = wcss_compiler::compile(input, &config);
+    let result = euis_compiler::compile(input, &config);
     println!("Output: '{}' ({} bytes)", result.css, result.css.len());
     println!("Errors: {:?}", result.errors);
     
     // Warm up
     for _ in 0..100 {
-        let _ = wcss_compiler::compile(input, &config);
+        let _ = euis_compiler::compile(input, &config);
     }
     
     // Benchmark
@@ -24,7 +24,7 @@ fn main() {
     let start = Instant::now();
     
     for _ in 0..iterations {
-        let _ = wcss_compiler::compile(input, &config);
+        let _ = euis_compiler::compile(input, &config);
     }
     
     let elapsed = start.elapsed();

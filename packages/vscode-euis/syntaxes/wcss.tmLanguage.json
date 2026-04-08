@@ -1,0 +1,111 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "Euis",
+  "scopeName": "source.euis",
+  "fileTypes": [".euis"],
+  "patterns": [
+    {
+      "include": "#comments"
+    },
+    {
+      "include": "#selectors"
+    },
+    {
+      "include": "#properties"
+    },
+    {
+      "include": "#values"
+    },
+    {
+      "include": "#tokens"
+    }
+  ],
+  "repository": {
+    "comments": {
+      "patterns": [
+        {
+          "name": "comment.block.euis",
+          "begin": "/\\*",
+          "end": "\\*/"
+        },
+        {
+          "name": "comment.line.double-slash.euis",
+          "match": "//.*$"
+        }
+      ]
+    },
+    "selectors": {
+      "patterns": [
+        {
+          "name": "entity.name.tag.css.euis",
+          "match": "\\.[a-zA-Z_-][a-zA-Z0-9_-]*",
+          "comment": "Class selector"
+        },
+        {
+          "name": "entity.other.attribute-name.pseudo-class.euis",
+          "match": ":(hover|focus|active|visited|disabled|checked|first-child|last-child)",
+          "comment": "State/pseudo-class selector"
+        },
+        {
+          "name": "keyword.control.at-rule.euis",
+          "match": "@responsive|@container",
+          "comment": "Responsive at-rules"
+        }
+      ]
+    },
+    "properties": {
+      "patterns": [
+        {
+          "name": "support.type.property-name.css.euis",
+          "match": "[a-z-]+(?=\\s*:)",
+          "comment": "CSS property names"
+        }
+      ]
+    },
+    "values": {
+      "patterns": [
+        {
+          "name": "constant.numeric.css.euis",
+          "match": "\\d+(\\.\\d+)?(px|rem|em|%|vh|vw|fr|s|ms)?",
+          "comment": "Numeric values with units"
+        },
+        {
+          "name": "constant.other.color.rgb-value.euis",
+          "match": "#([0-9a-fA-F]{3}){1,2}",
+          "comment": "Hex colors"
+        },
+        {
+          "name": "string.quoted.double.euis",
+          "begin": "\"",
+          "end": "\"",
+          "patterns": [
+            {
+              "name": "constant.character.escape.euis",
+              "match": "\\\\."
+            }
+          ]
+        },
+        {
+          "name": "string.quoted.single.euis",
+          "begin": "'",
+          "end": "'",
+          "patterns": [
+            {
+              "name": "constant.character.escape.euis",
+              "match": "\\\\."
+            }
+          ]
+        }
+      ]
+    },
+    "tokens": {
+      "patterns": [
+        {
+          "name": "variable.other.token.euis",
+          "match": "\\$[a-zA-Z_][a-zA-Z0-9_]*(\\.[a-zA-Z_][a-zA-Z0-9_]*)?",
+          "comment": "Design token references ($category.name)"
+        }
+      ]
+    }
+  }
+}

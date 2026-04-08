@@ -8,7 +8,7 @@ const cpuModel = os.cpus()[0].model;
 const nodeVersion = process.version;
 
 console.log('='.repeat(80));
-console.log('WCSS vs Tailwind CSS vs UnoCSS vs Panda CSS - Benchmark');
+console.log('Euis vs Tailwind CSS vs UnoCSS vs Panda CSS - Benchmark');
 console.log('='.repeat(80));
 console.log(`Machine: ${cpuModel}`);
 console.log(`Node: ${nodeVersion}`);
@@ -129,9 +129,9 @@ async function benchmarkPandaCSS(html, iterations = 10) {
   };
 }
 
-// Benchmark WCSS (mock - using simple string processing)
-function benchmarkWCSS(wcssInput, iterations = 10) {
-  // Mock WCSS compilation (just pass through for now)
+// Benchmark Euis (mock - using simple string processing)
+function benchmarkEuis(euisInput, iterations = 10) {
+  // Mock Euis compilation (just pass through for now)
   const compile = (input) => {
     // Simple mock: just return the input as CSS
     return input.replace(/\.utility-/g, '.u-');
@@ -139,19 +139,19 @@ function benchmarkWCSS(wcssInput, iterations = 10) {
   
   // Warm up
   for (let i = 0; i < 3; i++) {
-    compile(wcssInput);
+    compile(euisInput);
   }
   
   // Cold run
   const coldStart = performance.now();
-  const coldResult = compile(wcssInput);
+  const coldResult = compile(euisInput);
   const coldTime = performance.now() - coldStart;
   
   // Warm runs
   const times = [];
   for (let i = 0; i < iterations; i++) {
     const start = performance.now();
-    compile(wcssInput);
+    compile(euisInput);
     times.push(performance.now() - start);
   }
   
@@ -176,7 +176,7 @@ async function runBenchmarks() {
     console.log('='.repeat(80));
     
     const html = generateTestHTML(size);
-    const wcssInput = fs.readFileSync(path.join(__dirname, '../benchmark_5k_rules.wcss'), 'utf8');
+    const euisInput = fs.readFileSync(path.join(__dirname, '../benchmark_5k_rules.euis'), 'utf8');
     
     console.log(`Input size: ${(html.length / 1024).toFixed(2)}KB (HTML)`);
     console.log();
@@ -222,16 +222,16 @@ async function runBenchmarks() {
     }
     console.log();
     
-    // WCSS (mock)
-    console.log('WCSS (JavaScript mock):');
-    const wcssResult = benchmarkWCSS(wcssInput);
-    console.log(`  Cold start: ${wcssResult.cold.toFixed(2)}ms`);
-    console.log(`  Warm avg:   ${wcssResult.warm.toFixed(2)}ms`);
-    console.log(`  Output:     ${wcssResult.outputKB}KB`);
+    // Euis (mock)
+    console.log('Euis (JavaScript mock):');
+    const euisResult = benchmarkEuis(euisInput);
+    console.log(`  Cold start: ${euisResult.cold.toFixed(2)}ms`);
+    console.log(`  Warm avg:   ${euisResult.warm.toFixed(2)}ms`);
+    console.log(`  Output:     ${euisResult.outputKB}KB`);
     console.log();
     
     // Note about Rust version
-    console.log('WCSS (Rust/WASM - from cargo benchmark):');
+    console.log('Euis (Rust/WASM - from cargo benchmark):');
     if (size === 5000) {
       console.log(`  Cold start: ~13.20ms (measured separately)`);
       console.log(`  Warm avg:   ~13.20ms (measured separately)`);

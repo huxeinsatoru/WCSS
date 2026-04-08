@@ -1,9 +1,9 @@
 import { defineConfig } from 'vite';
-import wcss from 'vite-plugin-wcss';
+import euis from 'vite-plugin-euis';
 
 export default defineConfig({
   plugins: [
-    wcss({
+    euis({
       minify: false,
       sourceMaps: true,
       treeShaking: false,

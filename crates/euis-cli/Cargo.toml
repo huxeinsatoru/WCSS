@@ -1,0 +1,18 @@
+[package]
+name = "euis-cli"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Native Rust CLI for Euis (Euis)"
+
+[[bin]]
+name = "euis"
+path = "src/main.rs"
+
+[dependencies]
+euis-compiler = { path = "../euis-compiler" }
+clap = { version = "4", features = ["derive"] }
+notify = "6"
+colored = "2"
+serde_json = "1"
+glob = "0.3"

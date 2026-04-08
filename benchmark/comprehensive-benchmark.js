@@ -2,7 +2,7 @@
 /**
  * Comprehensive CSS Compiler Benchmark
  * 
- * Compares: WCSS, LightningCSS, PostCSS + Autoprefixer, TailwindCSS
+ * Compares: Euis, LightningCSS, PostCSS + Autoprefixer, TailwindCSS
  * Metrics: Compile time, Output size, Minification efficiency, Memory usage
  */
 
@@ -18,7 +18,7 @@ const osPlatform = os.platform();
 
 console.log('='.repeat(90));
 console.log('COMPREHENSIVE CSS COMPILER BENCHMARK');
-console.log('WCSS vs LightningCSS vs PostCSS vs TailwindCSS');
+console.log('Euis vs LightningCSS vs PostCSS vs TailwindCSS');
 console.log('='.repeat(90));
 console.log(`Platform:   ${osPlatform}`);
 console.log(`CPU:        ${cpuModel}`);
@@ -530,8 +530,8 @@ function generateVendorPrefixCSS() {
 // Benchmark Functions
 // =============================================================================
 
-async function benchmarkWCSS(css, iterations = 20) {
-  // We'll simulate WCSS by measuring a simple Rust-like operation
+async function benchmarkEuis(css, iterations = 20) {
+  // We'll simulate Euis by measuring a simple Rust-like operation
   // In production, this would call the WASM compiler
   
   const mockCompile = (input) => {
@@ -575,7 +575,7 @@ async function benchmarkWCSS(css, iterations = 20) {
   const max = times[times.length - 1];
   
   return {
-    name: 'WCSS (JavaScript Mock)',
+    name: 'Euis (JavaScript Mock)',
     cold: coldTime,
     warm: {
       median,
@@ -859,13 +859,13 @@ async function runBenchmark(name, css, html = null) {
     }
   }
   
-  // WCSS (mock)
+  // Euis (mock)
   try {
-    const result = await benchmarkWCSS(css, 20);
+    const result = await benchmarkEuis(css, 20);
     results.push(result);
     printResult(result, results[0]);
   } catch (err) {
-    console.log(`\n  WCSS: Error - ${err.message}`);
+    console.log(`\n  Euis: Error - ${err.message}`);
   }
   
   return results;
@@ -897,9 +897,9 @@ async function main() {
   console.log('1. LightningCSS is the fastest for parsing and transforming CSS');
   console.log('2. PostCSS with plugins is significantly slower due to plugin overhead');
   console.log('3. Minification adds overhead but reduces output size significantly');
-  console.log('4. WCSS goal: Achieve LightningCSS-level speed with added features');
+  console.log('4. Euis goal: Achieve LightningCSS-level speed with added features');
   
-  console.log('\nRecommendations for WCSS:');
+  console.log('\nRecommendations for Euis:');
   console.log('- Target <1ms for simple CSS (like LightningCSS)');
   console.log('- Focus on W3C Design Tokens as key differentiator');
   console.log('- Add vendor prefixing (major gap vs LightningCSS)');
