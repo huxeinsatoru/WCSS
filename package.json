@@ -30,12 +30,11 @@
     "build:webpack": "cd packages/wcss-loader && npm run build",
     "build:next": "cd packages/next-wcss && npm run build",
     "build:nuxt": "cd packages/nuxt-wcss && npm run build",
-    "build:astro": "cd packages/astro-wcss && npm run build",
     "build:cdn": "cd packages/wcss-cdn && npm run build",
     "build:vscode": "cd packages/vscode-wcss && npm run build",
     "build:plugin": "npm run build:vite",
     "build": "npm run build:wasm && npm run build:plugin",
-    "build:all": "npm run build:rust && npm run build:cli && npm run build:vite && npm run build:webpack && npm run build:next && npm run build:astro && npm run build:cdn",
+    "build:all": "npm run build:rust && npm run build:cli && npm run build:vite && npm run build:webpack && npm run build:next && npm run build:cdn",
     "publish:wasm": "cd pkg/bundler && npm publish --access public",
     "publish:plugin": "cd packages/vite-plugin-wcss && npm publish --access public",
     "test": "cargo test && cd packages/wcss-cli && npm test"

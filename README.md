@@ -23,7 +23,7 @@ A CSS compiler built with Rust and WebAssembly. Compiles in microseconds, output
 - **Parallel processing** - Rayon-based multi-file compilation (auto-parallel for 2+ files)
 - **Rich diagnostics** - E001-E010 error codes, Levenshtein suggestions, colored output
 - **Zero runtime** - Pure CSS output, no JavaScript in browser
-- **Framework plugins** - Vite, Webpack, Next.js, Nuxt, Astro
+- **Framework plugins** - Vite, Webpack, Next.js, Nuxt
 - **Cloud environment support** - Works in Lovable, StackBlitz, CodeSandbox via WASM
 
 ## Install
@@ -710,7 +710,6 @@ export default {
 | `vite-plugin-wcss` | Vite plugin with HMR support |
 | `next-wcss` | Next.js plugin |
 | `wcss-loader` | Webpack loader |
-| `astro-wcss` | Astro integration |
 | `wcss-lsp` | Language Server Protocol implementation |
 | `vscode-wcss` | VS Code extension |
 
@@ -794,7 +793,7 @@ Test categories:
 - **Integration tests** - End-to-end compilation workflows
 - **Parallel processing tests** - Multi-file compilation
 - **Diagnostics tests** - Error reporting and suggestions
-- **Framework tests** - Vite, Next.js, Astro plugins
+- **Framework tests** - Vite, Next.js plugins
 - **Tailwind compatibility tests** - @tailwind, @apply, @theme, @utility, @variant, @source, @plugin, @config directives (v3 + v4)
 
 ## License
