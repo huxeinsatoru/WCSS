@@ -1,6 +1,6 @@
 {
   "name": "vite-plugin-euis",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "type": "module",
   "description": "Vite plugin for Euis (Euis) with Tailwind CSS compatibility - compile Euis to CSS with WebAssembly. Works in cloud environments like Lovable, StackBlitz, and CodeSandbox.",
   "main": "dist/index.js",
@@ -50,6 +50,6 @@
     "ts-jest": "^29.1.1"
   },
   "dependencies": {
-    "euis-wasm": "^0.5.0"
+    "@euis/wasm": "^0.5.0"
   }
 }
