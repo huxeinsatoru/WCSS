@@ -63,6 +63,32 @@ pub enum AtRule {
     Namespace(String, Span),
     /// @scope (.root) to (.limit) { ... }
     Scope(ScopeRule),
+    /// @tailwind base | components | utilities | variants; — Tailwind CSS directive
+    Tailwind(TailwindDirective),
+    /// @theme { ... } — Tailwind v4 theme definition
+    Theme(ThemeRule),
+    /// @utility name { ... } — Tailwind v4 custom utility
+    Utility(UtilityRule),
+    /// @variant name { ... } — Tailwind v4 custom variant
+    Variant(VariantRule),
+    /// @custom-variant name { ... } — Tailwind v4 custom variant (alias)
+    CustomVariant(VariantRule),
+    /// @source "path" — Tailwind v4 content source
+    Source(String, Span),
+    /// @plugin "name" — Tailwind v4 plugin
+    Plugin(String, Span),
+    /// @config "path" — Tailwind v4 config reference
+    Config(String, Span),
+    /// @page { ... } — Print styles
+    Page(PageRule),
+}
+
+/// @page rule for print styles
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct PageRule {
+    pub selector: Option<String>,
+    pub declarations: Vec<Declaration>,
+    pub span: Span,
 }
 
 /// @import rule
@@ -176,6 +202,48 @@ pub struct ScopeRule {
     pub span: Span,
 }
 
+/// @tailwind directive: `@tailwind base;` or `@tailwind components;` etc.
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct TailwindDirective {
+    /// The directive type: base, components, utilities, variants, screens
+    pub directive_type: TailwindDirectiveType,
+    pub span: Span,
+}
+
+/// Tailwind directive types
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum TailwindDirectiveType {
+    Base,
+    Components,
+    Utilities,
+    Variants,
+    Screens,
+}
+
+/// @theme { ... } — Tailwind v4 theme definition block
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ThemeRule {
+    /// Raw content inside the @theme block (pass-through for Tailwind to process)
+    pub content: String,
+    pub span: Span,
+}
+
+/// @utility name { ... } — Tailwind v4 custom utility definition
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct UtilityRule {
+    pub name: String,
+    pub content: String,
+    pub span: Span,
+}
+
+/// @variant name { ... } — Tailwind v4 custom variant definition
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct VariantRule {
+    pub name: String,
+    pub content: String,
+    pub span: Span,
+}
+
 // ---------------------------------------------------------------------------
 // Style Rules
 // ---------------------------------------------------------------------------
@@ -194,6 +262,9 @@ pub struct Rule {
     /// Nested rules (CSS nesting spec)
     #[serde(default)]
     pub nested_rules: Vec<Rule>,
+    /// Nested at-rules (@media, @supports, @container inside a rule)
+    #[serde(default)]
+    pub nested_at_rules: Vec<NestedAtRule>,
     pub span: Span,
 }
 
@@ -371,6 +442,8 @@ pub struct Declaration {
 pub enum Property {
     Standard(String),
     Custom(String), // --custom-property
+    /// @apply directive (Tailwind CSS)
+    Apply(String), // @apply utility-class
 }
 
 impl Property {
@@ -378,6 +451,7 @@ impl Property {
         match self {
             Property::Standard(name) => name,
             Property::Custom(name) => name,
+            Property::Apply(classes) => classes,
         }
     }
 }
@@ -914,6 +988,25 @@ pub struct ResponsiveBlock {
     pub breakpoint: String,
     pub declarations: Vec<Declaration>,
     pub span: Span,
+}
+
+/// Nested at-rule inside a rule block (CSS nesting spec).
+/// Supports @media, @supports, @container nested inside rules.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct NestedAtRule {
+    pub kind: NestedAtRuleKind,
+    pub query: String,
+    pub declarations: Vec<Declaration>,
+    pub nested_rules: Vec<Rule>,
+    pub span: Span,
+}
+
+/// Kind of nested at-rule.
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum NestedAtRuleKind {
+    Media,
+    Supports,
+    Container,
 }
 
 // ---------------------------------------------------------------------------

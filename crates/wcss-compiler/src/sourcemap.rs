@@ -139,6 +139,7 @@ mod tests {
                 states: vec![],
                 responsive: vec![],
                 nested_rules: vec![],
+                nested_at_rules: vec![],
                 span: Span::new(0, 30, 1, 1),
             }],
             at_rules: vec![],

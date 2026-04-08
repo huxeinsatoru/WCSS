@@ -103,6 +103,7 @@ fn rule_with_states_strategy() -> impl Strategy<Value = Rule> {
         states,
         responsive: vec![],
         nested_rules: vec![],
+            nested_at_rules: vec![],
         span: Span::empty(),
     })
 }
@@ -224,6 +225,7 @@ proptest! {
             states: vec![state_block],
             responsive: vec![],
             nested_rules: vec![],
+            nested_at_rules: vec![],
             span: Span::empty(),
         };
 
@@ -284,6 +286,7 @@ proptest! {
             states: vec![state_block],
             responsive: vec![],
             nested_rules: vec![],
+            nested_at_rules: vec![],
             span: Span::empty(),
         };
 
@@ -343,6 +346,7 @@ proptest! {
             states: state_blocks.clone(),
             responsive: vec![],
             nested_rules: vec![],
+            nested_at_rules: vec![],
             span: Span::empty(),
         };
 
@@ -391,6 +395,7 @@ proptest! {
             states: state_blocks.clone(),
             responsive: vec![],
             nested_rules: vec![],
+            nested_at_rules: vec![],
             span: Span::empty(),
         };
         
@@ -448,6 +453,7 @@ proptest! {
             states: state_blocks.clone(),
             responsive: vec![],
             nested_rules: vec![],
+            nested_at_rules: vec![],
             span: Span::empty(),
         };
         
@@ -526,6 +532,7 @@ proptest! {
             states: state_blocks,
             responsive: vec![],
             nested_rules: vec![],
+            nested_at_rules: vec![],
             span: Span::empty(),
         };
         

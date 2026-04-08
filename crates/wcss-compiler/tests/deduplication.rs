@@ -76,6 +76,7 @@ fn rule_strategy(class_name: String, declarations: Vec<Declaration>) -> Rule {
         states: vec![],
         responsive: vec![],
         nested_rules: vec![],
+            nested_at_rules: vec![],
         span: Span::empty(),
     }
 }

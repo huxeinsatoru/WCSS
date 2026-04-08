@@ -285,6 +285,13 @@ fn process_rule(
     for nested in &mut rule.nested_rules {
         process_rule(nested, config, file_path, exports, compositions);
     }
+
+    // Recurse into nested at-rules.
+    for nested_at in &mut rule.nested_at_rules {
+        for nested_rule in &mut nested_at.nested_rules {
+            process_rule(nested_rule, config, file_path, exports, compositions);
+        }
+    }
 }
 
 /// Hash a single selector if it is a class selector and not :global().
@@ -426,6 +433,30 @@ fn regenerate_at_rule(out: &mut String, at_rule: &AtRule, indent: usize) {
                 out.push_str(&format!("{}  initial-value: {};\n", pad, iv));
             }
             out.push_str(&format!("{}}}\n", pad));
+        }
+        AtRule::Scope(scope) => {
+            out.push_str(&format!("{}@scope ", pad));
+            if !scope.root.is_empty() {
+                out.push_str(&format!("({})", scope.root));
+            }
+            if let Some(ref limit) = scope.limit {
+                out.push_str(&format!(" to ({})", limit));
+            }
+            out.push_str(" {\n");
+            for rule in &scope.rules {
+                regenerate_rule(out, rule, indent + 1);
+            }
+            out.push_str(&format!("{}}}\n", pad));
+        }
+        AtRule::Tailwind(tw) => {
+            let directive_name = match tw.directive_type {
+                TailwindDirectiveType::Base => "base",
+                TailwindDirectiveType::Components => "components",
+                TailwindDirectiveType::Utilities => "utilities",
+                TailwindDirectiveType::Variants => "variants",
+                TailwindDirectiveType::Screens => "screens",
+            };
+            out.push_str(&format!("{}@tailwind {};\n", pad, directive_name));
         }
     }
 }
@@ -635,15 +666,30 @@ fn camel_to_kebab(s: &str) -> String {
 
 fn write_decl(out: &mut String, decl: &Declaration) {
     match &decl.property {
-        Property::Standard(name) => out.push_str(name),
-        Property::Custom(name) => out.push_str(name),
+        Property::Standard(name) => {
+            out.push_str(name);
+            out.push_str(": ");
+            write_value(out, &decl.value);
+            if decl.important {
+                out.push_str(" !important");
+            }
+            out.push(';');
+        }
+        Property::Custom(name) => {
+            out.push_str(name);
+            out.push_str(": ");
+            write_value(out, &decl.value);
+            if decl.important {
+                out.push_str(" !important");
+            }
+            out.push(';');
+        }
+        Property::Apply(classes) => {
+            out.push_str("@apply ");
+            out.push_str(classes);
+            out.push(';');
+        }
     }
-    out.push_str(": ");
-    write_value(out, &decl.value);
-    if decl.important {
-        out.push_str(" !important");
-    }
-    out.push(';');
 }
 
 fn write_value(out: &mut String, value: &Value) {

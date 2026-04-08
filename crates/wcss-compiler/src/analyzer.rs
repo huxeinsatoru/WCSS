@@ -68,6 +68,12 @@ fn count_rule_declarations(rule: &Rule) -> usize {
     for nested in &rule.nested_rules {
         count += count_rule_declarations(nested);
     }
+    for nested_at in &rule.nested_at_rules {
+        count += nested_at.declarations.len();
+        for nested_rule in &nested_at.nested_rules {
+            count += count_rule_declarations(nested_rule);
+        }
+    }
     count
 }
 
@@ -83,6 +89,7 @@ fn count_at_rule_declarations(at_rule: &AtRule) -> usize {
         AtRule::Supports(sup) => sup.rules.iter().map(|r| count_rule_declarations(r)).sum(),
         AtRule::Container(cont) => cont.rules.iter().map(|r| count_rule_declarations(r)).sum(),
         AtRule::Media(media) => media.rules.iter().map(|r| count_rule_declarations(r)).sum(),
+        AtRule::Page(page) => page.declarations.len(),
         _ => 0,
     }
 }
@@ -203,6 +210,8 @@ fn build_rules_by_type(stylesheet: &StyleSheet) -> HashMap<String, RuleTypeStats
             AtRule::Property(_) => ("properties".to_string(), 60),
             AtRule::Charset(_, _) => ("charset".to_string(), 20),
             AtRule::Namespace(_, _) => ("namespace".to_string(), 30),
+            AtRule::Scope(_) => ("scope".to_string(), 50),
+            AtRule::Tailwind(_) => ("tailwind".to_string(), 30),
         };
 
         let entry = map.entry(key).or_insert(RuleTypeStats {
@@ -501,6 +510,7 @@ mod tests {
             states: vec![],
             responsive: vec![],
             nested_rules: vec![],
+            nested_at_rules: vec![],
             span: Span::empty(),
         }
     }

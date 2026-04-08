@@ -76,6 +76,14 @@ fn validate_rule(rule: &Rule, config: &CompilerConfig, errors: &mut Vec<Compiler
     for nested in &rule.nested_rules {
         validate_rule(nested, config, errors);
     }
+    for nested_at in &rule.nested_at_rules {
+        for decl in &nested_at.declarations {
+            validate_declaration(decl, config, errors);
+        }
+        for nested_rule in &nested_at.nested_rules {
+            validate_rule(nested_rule, config, errors);
+        }
+    }
 }
 
 fn validate_declaration(decl: &Declaration, config: &CompilerConfig, errors: &mut Vec<CompilerError>) {
@@ -182,6 +190,7 @@ mod tests {
                 states: vec![],
                 responsive: vec![],
                 nested_rules: vec![],
+                nested_at_rules: vec![],
                 span: Span::empty(),
             }],
             at_rules: vec![],
@@ -219,6 +228,7 @@ mod tests {
                 states: vec![],
                 responsive: vec![],
                 nested_rules: vec![],
+                nested_at_rules: vec![],
                 span: Span::empty(),
             }],
             at_rules: vec![],

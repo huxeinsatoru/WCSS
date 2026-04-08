@@ -137,6 +137,7 @@ fn rule_strategy() -> impl Strategy<Value = Rule> {
             states,
             responsive,
             nested_rules: vec![],
+            nested_at_rules: vec![],
             span: Span::empty(),
         })
 }
@@ -255,6 +256,7 @@ fn normalize_ast(stylesheet: &StyleSheet) -> StyleSheet {
                     })
                     .collect(),
                 nested_rules: vec![],
+            nested_at_rules: vec![],
                 span: Span::empty(),
             })
             .collect(),

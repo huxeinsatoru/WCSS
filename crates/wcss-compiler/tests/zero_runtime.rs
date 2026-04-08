@@ -62,6 +62,7 @@ fn rule_strategy() -> impl Strategy<Value = Rule> {
             states: vec![],
             responsive: vec![],
             nested_rules: vec![],
+            nested_at_rules: vec![],
             span: Span::empty(),
         })
 }

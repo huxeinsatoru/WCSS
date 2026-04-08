@@ -1,8 +1,8 @@
 {
   "name": "vite-plugin-wcss",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "type": "module",
-  "description": "Vite plugin for WCSS (Web Compiler Style Sheets) - compile WCSS to CSS with WebAssembly. Works in cloud environments like Lovable, StackBlitz, and CodeSandbox.",
+  "description": "Vite plugin for WCSS (Web Compiler Style Sheets) with Tailwind CSS compatibility - compile WCSS to CSS with WebAssembly. Works in cloud environments like Lovable, StackBlitz, and CodeSandbox.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "files": [

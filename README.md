@@ -8,7 +8,8 @@ A CSS compiler built with Rust and WebAssembly. Compiles in microseconds, output
 
 - **Fast compilation** - Rust-based compiler with WebAssembly (1.73ms for 5000 rules with tree-shaking)
 - **Full CSS spec support** - All selectors (#id, .class, [attr], :pseudo), at-rules (@keyframes, @layer, @media, @container), 55+ units, 40+ pseudo-classes
-- **Modern CSS syntax** - Space-separated colors (hsl/rgb with slash alpha), vendor prefixes, modern properties
+- **Tailwind CSS first** - Full support for @tailwind, @apply, @theme, @utility, @variant, @source, @plugin, @config directives (v3 + v4)
+- **Modern CSS syntax** - Space-separated colors (hsl/rgb/hwb/oklch/oklab with slash alpha), nested @media/@supports/@container, vendor prefixes
 - **Automatic tree shaking** - Auto-scan HTML/JSX/TSX/Vue/Svelte files for used classes (98% size reduction)
 - **CSS Modules** - Local scoping with `.module.wcss`, class hashing, `:local()/:global()`, `composes:` support
 - **Bundle Analyzer** - Tree-shaking stats per component, size analysis, top 10 largest rules
@@ -180,6 +181,69 @@ Use in styles:
 ```
 
 ## Language Features
+
+### Tailwind CSS First
+
+WCSS fully supports Tailwind CSS as a first-class workflow, with all v3 and v4 directives:
+
+**@tailwind Directives (v3/v4):**
+```wcss
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+```
+
+**@apply Directive:**
+```wcss
+.btn-primary {
+  @apply px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600;
+}
+
+.hero {
+  @apply container mx-auto px-4;
+
+  @media (min-width: 768px) {
+    @apply px-8;
+  }
+}
+```
+
+**@layer with @apply:**
+```wcss
+@layer components {
+  .card {
+    @apply p-4 bg-white shadow rounded;
+  }
+  
+  .btn {
+    @apply px-4 py-2 rounded font-semibold;
+  }
+}
+```
+
+**Tailwind v4 Directives:**
+```wcss
+@theme {
+  --color-primary: #3b82f6;
+  --font-display: "Inter", sans-serif;
+}
+
+@source "../src/**/*.{html,jsx,tsx}";
+@plugin "@tailwindcss/typography";
+@config "./tailwind.config.ts";
+
+@utility content-auto {
+  content-visibility: auto;
+}
+
+@variant hocus (&:hover, &:focus);
+```
+
+**Tailwind-First Workflow:**
+- All `@tailwind`, `@theme`, `@utility`, `@variant`, `@source`, `@plugin`, `@config` directives pass through to the output
+- `@apply` composes Tailwind utilities into custom components
+- Nested `@media`, `@supports`, `@container` work inside rules with `@apply`
+- Compatible with Tailwind CSS v3 and v4
 
 ### Modern CSS Syntax Support
 
@@ -690,14 +754,17 @@ WCSS includes GitHub Actions workflows for continuous integration:
 
 ## Testing
 
-WCSS has comprehensive test coverage with 350+ tests:
+WCSS has comprehensive test coverage with 381+ tests:
 
 ```bash
-# Rust tests (208 tests)
+# Rust tests (218 tests)
 cargo test
 
 # JavaScript tests (142 tests)
 npm test
+
+# Tailwind directive tests
+cargo test --test tailwind_directives
 
 # Property-based tests
 cargo test --test deduplication
@@ -728,6 +795,7 @@ Test categories:
 - **Parallel processing tests** - Multi-file compilation
 - **Diagnostics tests** - Error reporting and suggestions
 - **Framework tests** - Vite, Next.js, Astro plugins
+- **Tailwind compatibility tests** - @tailwind, @apply, @theme, @utility, @variant, @source, @plugin, @config directives (v3 + v4)
 
 ## License
 

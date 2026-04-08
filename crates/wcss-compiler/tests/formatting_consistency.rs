@@ -103,6 +103,7 @@ fn rule_strategy() -> impl Strategy<Value = Rule> {
             },
             selectors: vec![],
             nested_rules: vec![],
+            nested_at_rules: vec![],
             declarations,
             states,
             responsive,

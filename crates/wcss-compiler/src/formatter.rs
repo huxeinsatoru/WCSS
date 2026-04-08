@@ -143,6 +143,73 @@ fn format_at_rule(output: &mut String, at_rule: &AtRule, indent: usize) {
             }
             output.push_str(&format!("{prefix}}}\n"));
         }
+        AtRule::Tailwind(tw) => {
+            let directive_name = match tw.directive_type {
+                TailwindDirectiveType::Base => "base",
+                TailwindDirectiveType::Components => "components",
+                TailwindDirectiveType::Utilities => "utilities",
+                TailwindDirectiveType::Variants => "variants",
+                TailwindDirectiveType::Screens => "screens",
+            };
+            output.push_str(&format!("{prefix}@tailwind {directive_name};\n"));
+        }
+        AtRule::Theme(theme) => {
+            if theme.content.is_empty() {
+                output.push_str(&format!("{prefix}@theme;\n"));
+            } else {
+                output.push_str(&format!("{prefix}@theme {{\n"));
+                for line in theme.content.lines() {
+                    if !line.trim().is_empty() {
+                        output.push_str(&format!("{}  {}\n", prefix, line.trim()));
+                    }
+                }
+                output.push_str(&format!("{prefix}}}\n"));
+            }
+        }
+        AtRule::Utility(u) => {
+            output.push_str(&format!("{prefix}@utility {} {{\n", u.name));
+            for line in u.content.lines() {
+                if !line.trim().is_empty() {
+                    output.push_str(&format!("{}  {}\n", prefix, line.trim()));
+                }
+            }
+            output.push_str(&format!("{prefix}}}\n"));
+        }
+        AtRule::Variant(v) | AtRule::CustomVariant(v) => {
+            let directive = if matches!(at_rule, AtRule::CustomVariant(_)) { "@custom-variant" } else { "@variant" };
+            if v.content.is_empty() {
+                output.push_str(&format!("{prefix}{directive} {};\n", v.name));
+            } else {
+                output.push_str(&format!("{prefix}{directive} {} {{\n", v.name));
+                for line in v.content.lines() {
+                    if !line.trim().is_empty() {
+                        output.push_str(&format!("{}  {}\n", prefix, line.trim()));
+                    }
+                }
+                output.push_str(&format!("{prefix}}}\n"));
+            }
+        }
+        AtRule::Source(path, _) => {
+            output.push_str(&format!("{prefix}@source \"{path}\";\n"));
+        }
+        AtRule::Plugin(name, _) => {
+            output.push_str(&format!("{prefix}@plugin \"{name}\";\n"));
+        }
+        AtRule::Config(path, _) => {
+            output.push_str(&format!("{prefix}@config \"{path}\";\n"));
+        }
+        AtRule::Page(page) => {
+            output.push_str(&format!("{prefix}@page"));
+            if let Some(ref sel) = page.selector {
+                output.push_str(&format!(" {sel}"));
+            }
+            output.push_str(" {\n");
+            let inner = "  ".repeat(indent + 1);
+            for decl in &page.declarations {
+                format_declaration(output, decl, &inner);
+            }
+            output.push_str(&format!("{prefix}}}\n"));
+        }
     }
 }
 
@@ -190,6 +257,25 @@ fn format_rule(output: &mut String, rule: &Rule, indent: usize) {
         output.push_str(&format!("{inner_prefix}}}\n"));
     }
 
+    // Nested at-rules
+    for nested_at in &rule.nested_at_rules {
+        output.push('\n');
+        let at_keyword = match nested_at.kind {
+            NestedAtRuleKind::Media => "@media",
+            NestedAtRuleKind::Supports => "@supports",
+            NestedAtRuleKind::Container => "@container",
+        };
+        output.push_str(&format!("{inner_prefix}{} {} {{\n", at_keyword, nested_at.query));
+        let nested_prefix = "  ".repeat(indent + 2);
+        for decl in &nested_at.declarations {
+            format_declaration(output, decl, &nested_prefix);
+        }
+        for nested_rule in &nested_at.nested_rules {
+            format_rule(output, nested_rule, indent + 2);
+        }
+        output.push_str(&format!("{inner_prefix}}}\n"));
+    }
+
     // Nested rules
     for nested in &rule.nested_rules {
         output.push('\n');
@@ -200,10 +286,18 @@ fn format_rule(output: &mut String, rule: &Rule, indent: usize) {
 }
 
 fn format_declaration(output: &mut String, decl: &Declaration, prefix: &str) {
-    let prop = decl.property.name();
-    let val = format_value(&decl.value);
-    let important = if decl.important { " !important" } else { "" };
-    output.push_str(&format!("{prefix}{prop}: {val}{important};\n"));
+    match &decl.property {
+        Property::Apply(classes) => {
+            // Format @apply directive
+            output.push_str(&format!("{prefix}@apply {classes};\n"));
+        }
+        _ => {
+            let prop = decl.property.name();
+            let val = format_value(&decl.value);
+            let important = if decl.important { " !important" } else { "" };
+            output.push_str(&format!("{prefix}{prop}: {val}{important};\n"));
+        }
+    }
 }
 
 fn format_full_selector(selector: &Selector) -> String {
@@ -475,6 +569,7 @@ mod tests {
                 states: vec![],
                 responsive: vec![],
                 nested_rules: vec![],
+                nested_at_rules: vec![],
                 span: Span::empty(),
             }],
             at_rules: vec![],
@@ -510,6 +605,7 @@ mod tests {
                 states: vec![],
                 responsive: vec![],
                 nested_rules: vec![],
+                nested_at_rules: vec![],
                 span: Span::empty(),
             }],
             at_rules: vec![],

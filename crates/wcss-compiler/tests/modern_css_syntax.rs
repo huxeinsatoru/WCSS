@@ -42,15 +42,15 @@ fn test_modern_rgb_syntax() {
             background: rgb(0 128 255);
         }
     "#;
-    
+
     let config = CompilerConfig::default();
     let result = compile(source, &config);
-    
+
     assert!(result.errors.is_empty(), "Errors: {:?}", result.errors);
-    // Normalize: remove all whitespace for comparison
     let normalized = result.css.chars().filter(|c| !c.is_whitespace()).collect::<String>();
+    // Alpha color is preserved as rgba; pure rgb may be minified to hex
     assert!(normalized.contains("rgba(255,0,0,0.5)") || normalized.contains("color:rgba(255,0,0,0.5)"), "CSS output: {}", result.css);
-    assert!(normalized.contains("rgb(0,128,255)") || normalized.contains("background:rgb(0,128,255)"), "CSS output: {}", result.css);
+    assert!(normalized.contains("#0080ff") || normalized.contains("rgb(0,128,255)") || normalized.contains("background:rgb(0,128,255)"), "CSS output: {}", result.css);
 }
 
 #[test]
@@ -61,14 +61,14 @@ fn test_legacy_rgb_syntax() {
             background: rgb(0, 128, 255);
         }
     "#;
-    
+
     let config = CompilerConfig::default();
     let result = compile(source, &config);
-    
+
     assert!(result.errors.is_empty(), "Errors: {:?}", result.errors);
     let normalized = result.css.chars().filter(|c| !c.is_whitespace()).collect::<String>();
     assert!(normalized.contains("rgba(255,0,0,0.5)") || normalized.contains("color:rgba(255,0,0,0.5)"), "CSS output: {}", result.css);
-    assert!(normalized.contains("rgb(0,128,255)") || normalized.contains("background:rgb(0,128,255)"), "CSS output: {}", result.css);
+    assert!(normalized.contains("#0080ff") || normalized.contains("rgb(0,128,255)") || normalized.contains("background:rgb(0,128,255)"), "CSS output: {}", result.css);
 }
 
 #[test]
@@ -208,14 +208,11 @@ fn test_complex_box_shadow() {
             box-shadow: 0 4px 6px rgba(0,0,0,0.1), 0 2px 4px rgba(0,0,0,0.06);
         }
     "#;
-    
+
     let config = CompilerConfig::default();
     let result = compile(source, &config);
-    
+
     assert!(result.errors.is_empty(), "Errors: {:?}", result.errors);
-    let normalized = result.css.chars().filter(|c| !c.is_whitespace()).collect::<String>();
-    assert!(normalized.contains("box-shadow"), "CSS output: {}", result.css);
-    // Box shadow is parsed as literal, so just check it's there
     assert!(result.css.contains("box-shadow"), "CSS output: {}", result.css);
 }
 

@@ -276,6 +276,127 @@ fn generate_at_rule(output: &mut String, at_rule: &AtRule, config: &CompilerConf
             output.push('}');
             if !minify { output.push('\n'); }
         }
+
+        AtRule::Tailwind(tw) => {
+            // Generate Tailwind directive as-is (pass-through)
+            output.push_str(&prefix);
+            output.push_str("@tailwind ");
+            let directive_name = match tw.directive_type {
+                TailwindDirectiveType::Base => "base",
+                TailwindDirectiveType::Components => "components",
+                TailwindDirectiveType::Utilities => "utilities",
+                TailwindDirectiveType::Variants => "variants",
+                TailwindDirectiveType::Screens => "screens",
+            };
+            output.push_str(directive_name);
+            output.push(';');
+            if !minify { output.push('\n'); }
+        }
+
+        AtRule::Theme(theme) => {
+            output.push_str(&prefix);
+            if theme.content.is_empty() {
+                output.push_str("@theme;");
+            } else if minify {
+                output.push_str("@theme{");
+                output.push_str(&theme.content);
+                output.push('}');
+            } else {
+                output.push_str("@theme {\n");
+                // Indent content lines
+                for line in theme.content.lines() {
+                    if !line.trim().is_empty() {
+                        output.push_str(&"  ".repeat(indent + 1));
+                        output.push_str(line.trim());
+                        output.push('\n');
+                    }
+                }
+                output.push_str(&prefix);
+                output.push_str("}\n");
+            }
+        }
+
+        AtRule::Utility(u) => {
+            output.push_str(&prefix);
+            if minify {
+                output.push_str(&format!("@utility {}", u.name));
+                output.push('{');
+                output.push_str(&u.content);
+                output.push('}');
+            } else {
+                output.push_str(&format!("@utility {} {{\n", u.name));
+                for line in u.content.lines() {
+                    if !line.trim().is_empty() {
+                        output.push_str(&"  ".repeat(indent + 1));
+                        output.push_str(line.trim());
+                        output.push('\n');
+                    }
+                }
+                output.push_str(&prefix);
+                output.push_str("}\n");
+            }
+        }
+
+        AtRule::Variant(v) | AtRule::CustomVariant(v) => {
+            let directive = if matches!(at_rule, AtRule::CustomVariant(_)) { "@custom-variant" } else { "@variant" };
+            output.push_str(&prefix);
+            if v.content.is_empty() {
+                output.push_str(&format!("{} {};", directive, v.name));
+            } else if minify {
+                output.push_str(&format!("{} {}", directive, v.name));
+                output.push('{');
+                output.push_str(&v.content);
+                output.push('}');
+            } else {
+                output.push_str(&format!("{} {} {{\n", directive, v.name));
+                for line in v.content.lines() {
+                    if !line.trim().is_empty() {
+                        output.push_str(&"  ".repeat(indent + 1));
+                        output.push_str(line.trim());
+                        output.push('\n');
+                    }
+                }
+                output.push_str(&prefix);
+                output.push_str("}\n");
+            }
+        }
+
+        AtRule::Source(path, _) => {
+            output.push_str(&prefix);
+            output.push_str(&format!("@source \"{path}\";"));
+            if !minify { output.push('\n'); }
+        }
+
+        AtRule::Plugin(name, _) => {
+            output.push_str(&prefix);
+            output.push_str(&format!("@plugin \"{name}\";"));
+            if !minify { output.push('\n'); }
+        }
+
+        AtRule::Config(path, _) => {
+            output.push_str(&prefix);
+            output.push_str(&format!("@config \"{path}\";"));
+            if !minify { output.push('\n'); }
+        }
+
+        AtRule::Page(page) => {
+            output.push_str(&prefix);
+            output.push_str("@page");
+            if let Some(ref sel) = page.selector {
+                output.push(' ');
+                output.push_str(sel);
+            }
+            if minify { output.push('{'); } else { output.push_str(" {\n"); }
+            let inner_prefix = if minify { String::new() } else { "  ".repeat(indent + 1) };
+            for decl in &page.declarations {
+                output.push_str(&inner_prefix);
+                write_declaration(output, decl, minify);
+                if !minify { output.push('\n'); }
+            }
+            output.push_str(&prefix);
+            output.push('}');
+            if !minify { output.push('\n'); }
+        }
     }
 }
 
@@ -431,6 +552,39 @@ fn generate_rule(output: &mut String, rule: &Rule, config: &CompilerConfig, mini
             output.push_str("  }\n");
             output.push_str(&prefix);
             output.push_str("}\n");
+        }
+    }
+
+    // === Nested at-rules (@media, @supports, @container inside rules) ===
+    for nested_at in &rule.nested_at_rules {
+        let at_keyword = match nested_at.kind {
+            NestedAtRuleKind::Media => "@media",
+            NestedAtRuleKind::Supports => "@supports",
+            NestedAtRuleKind::Container => "@container",
+        };
+        output.push_str(&prefix);
+        if minify {
+            output.push_str(&format!("{} {}", at_keyword, nested_at.query));
+            output.push('{');
+        } else {
+            output.push_str(&format!("  {} {} {{\n", at_keyword, nested_at.query));
+        }
+
+        let inner_prefix = if minify { String::new() } else { "  ".repeat(indent + 2) };
+        for decl in &nested_at.declarations {
+            output.push_str(&inner_prefix);
+            write_declaration(output, decl, minify);
+            if !minify { output.push('\n'); }
+        }
+        for nested_rule in &nested_at.nested_rules {
+            generate_rule(output, nested_rule, config, minify, indent + 2);
+        }
+
+        if minify {
+            output.push('}');
+        } else {
+            output.push_str(&prefix);
+            output.push_str("  }\n");
         }
     }
 
@@ -615,13 +769,23 @@ fn write_pseudo_element(output: &mut String, pe: &PseudoElement) {
 // ---------------------------------------------------------------------------
 
 fn write_declaration(output: &mut String, decl: &Declaration, minify: bool) {
-    output.push_str(decl.property.name());
-    if minify { output.push(':'); } else { output.push_str(": "); }
-    write_value(output, &decl.value, minify);
-    if decl.important {
-        if minify { output.push_str(" !important"); } else { output.push_str(" !important"); }
+    match &decl.property {
+        Property::Apply(classes) => {
+            // Write @apply directive
+            output.push_str("@apply ");
+            output.push_str(classes);
+            output.push(';');
+        }
+        _ => {
+            output.push_str(decl.property.name());
+            if minify { output.push(':'); } else { output.push_str(": "); }
+            write_value(output, &decl.value, minify);
+            if decl.important {
+                if minify { output.push_str(" !important"); } else { output.push_str(" !important"); }
+            }
+            output.push(';');
+        }
     }
-    output.push(';');
 }
 
 #[inline]
@@ -906,10 +1070,6 @@ fn write_pseudo(output: &mut String, modifier: &StateModifier) {
             output.push(':');
             output.push_str(s);
         }
-        _ => {
-            output.push(':');
-            output.push_str(&format!("{:?}", modifier).to_lowercase());
-        }
     }
 }
 
@@ -996,6 +1156,7 @@ mod tests {
                 states: vec![],
                 responsive: vec![],
                 nested_rules: vec![],
+                nested_at_rules: vec![],
                 span: Span::empty(),
             }],
             at_rules: vec![],
@@ -1042,6 +1203,7 @@ mod tests {
                 states: vec![],
                 responsive: vec![],
                 nested_rules: vec![],
+                nested_at_rules: vec![],
                 span: Span::empty(),
             }],
             at_rules: vec![],

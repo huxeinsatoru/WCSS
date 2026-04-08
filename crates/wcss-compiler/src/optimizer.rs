@@ -109,7 +109,7 @@ fn deduplicate(stylesheet: StyleSheet) -> StyleSheet {
     let mut rules: Vec<Rule> = Vec::new();
 
     for rule in stylesheet.rules {
-        if !rule.states.is_empty() || !rule.responsive.is_empty() || !rule.nested_rules.is_empty() {
+        if !rule.states.is_empty() || !rule.responsive.is_empty() || !rule.nested_rules.is_empty() || !rule.nested_at_rules.is_empty() {
             rules.push(rule);
             continue;
         }
@@ -120,6 +120,7 @@ fn deduplicate(stylesheet: StyleSheet) -> StyleSheet {
             if rules[existing_idx].states.is_empty()
                 && rules[existing_idx].responsive.is_empty()
                 && rules[existing_idx].nested_rules.is_empty()
+                && rules[existing_idx].nested_at_rules.is_empty()
             {
                 let existing_class = &rules[existing_idx].selector.class_name;
                 if existing_class == &rule.selector.class_name {
@@ -166,7 +167,7 @@ fn merge_selectors(stylesheet: StyleSheet) -> StyleSheet {
     let mut decl_map: HashMap<u64, Vec<usize>> = HashMap::new(); // Changed to Vec<usize> to track all matching rules
 
     for rule in stylesheet.rules {
-        if !rule.states.is_empty() || !rule.responsive.is_empty() || !rule.nested_rules.is_empty() {
+        if !rule.states.is_empty() || !rule.responsive.is_empty() || !rule.nested_rules.is_empty() || !rule.nested_at_rules.is_empty() {
             merged.push(rule);
             continue;
         }
@@ -389,6 +390,7 @@ mod tests {
             states: vec![],
             responsive: vec![],
             nested_rules: vec![],
+            nested_at_rules: vec![],
             span: Span::empty(),
         }
     }

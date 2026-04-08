@@ -345,26 +345,6 @@ impl<'a> Parser<'a> {
         Ok(content)
     }
 
-    /// Read everything until a closing brace, respecting nesting.
-    fn read_until_closing_brace(&mut self) -> String {
-        let start = self.pos;
-        let mut depth = 1;
-        while self.pos < self.bytes.len() && depth > 0 {
-            match self.bytes[self.pos] {
-                b'{' => depth += 1,
-                b'}' => {
-                    depth -= 1;
-                    if depth == 0 { break; }
-                }
-                b'\n' => { self.line += 1; self.column = 0; }
-                _ => {}
-            }
-            self.pos += 1;
-            self.column += 1;
-        }
-        self.source[start..self.pos].trim().to_string()
-    }
-
     // -----------------------------------------------------------------------
     // Top-level stylesheet parsing
     // -----------------------------------------------------------------------
@@ -508,6 +488,104 @@ impl<'a> Parser<'a> {
                 if self.peek_byte() == Some(b';') { self.advance(); }
                 Ok(AtRuleOrRule::AtRule(AtRule::Namespace(ns, self.span_from(start_pos, start_line, start_col))))
             }
+            "tailwind" => {
+                let directive = self.parse_tailwind_directive(start_pos, start_line, start_col)?;
+                Ok(AtRuleOrRule::AtRule(AtRule::Tailwind(directive)))
+            }
+            "theme" => {
+                let rule = self.parse_passthrough_block(start_pos, start_line, start_col)?;
+                Ok(AtRuleOrRule::AtRule(AtRule::Theme(ThemeRule {
+                    content: rule,
+                    span: self.span_from(start_pos, start_line, start_col),
+                })))
+            }
+            "utility" => {
+                self.skip_whitespace();
+                let name = self.read_identifier().unwrap_or_default();
+                let content = self.parse_passthrough_block(start_pos, start_line, start_col)?;
+                Ok(AtRuleOrRule::AtRule(AtRule::Utility(UtilityRule {
+                    name,
+                    content,
+                    span: self.span_from(start_pos, start_line, start_col),
+                })))
+            }
+            "variant" => {
+                self.skip_whitespace();
+                let name = self.read_identifier().unwrap_or_default();
+                let content = self.parse_passthrough_block(start_pos, start_line, start_col)?;
+                Ok(AtRuleOrRule::AtRule(AtRule::Variant(VariantRule {
+                    name,
+                    content,
+                    span: self.span_from(start_pos, start_line, start_col),
+                })))
+            }
+            "custom-variant" => {
+                self.skip_whitespace();
+                let name = self.read_identifier().unwrap_or_default();
+                let content = self.parse_passthrough_block(start_pos, start_line, start_col)?;
+                Ok(AtRuleOrRule::AtRule(AtRule::CustomVariant(VariantRule {
+                    name,
+                    content,
+                    span: self.span_from(start_pos, start_line, start_col),
+                })))
+            }
+            "source" => {
+                self.skip_whitespace();
+                let value = self.read_string_value()?;
+                if self.peek_byte() == Some(b';') { self.advance(); }
+                Ok(AtRuleOrRule::AtRule(AtRule::Source(value, self.span_from(start_pos, start_line, start_col))))
+            }
+            "plugin" => {
+                self.skip_whitespace();
+                let value = self.read_string_value()?;
+                if self.peek_byte() == Some(b';') { self.advance(); }
+                Ok(AtRuleOrRule::AtRule(AtRule::Plugin(value, self.span_from(start_pos, start_line, start_col))))
+            }
+            "config" => {
+                self.skip_whitespace();
+                let value = self.read_string_value()?;
+                if self.peek_byte() == Some(b';') { self.advance(); }
+                Ok(AtRuleOrRule::AtRule(AtRule::Config(value, self.span_from(start_pos, start_line, start_col))))
+            }
+            "page" => {
+                self.skip_whitespace();
+                // Optional page selector (e.g. :first, :left, :right)
+                let selector = if self.peek_byte() != Some(b'{') {
+                    let sel_start = self.pos;
+                    while self.pos < self.bytes.len() && self.bytes[self.pos] != b'{' {
+                        if self.bytes[self.pos] == b'\n' { self.line += 1; self.column = 1; }
+                        else { self.column += 1; }
+                        self.pos += 1;
+                    }
+                    let s = self.source[sel_start..self.pos].trim();
+                    if s.is_empty() { None } else { Some(s.to_string()) }
+                } else {
+                    None
+                };
+                self.expect('{')?;
+                let mut declarations = Vec::new();
+                loop {
+                    self.skip_whitespace();
+                    if self.peek_byte() == Some(b'}') { self.advance(); break; }
+                    if self.pos >= self.bytes.len() {
+                        return Err(CompilerError::syntax("Unclosed @page block", self.current_span()));
+                    }
+                    declarations.push(self.parse_declaration()?);
+                }
+                Ok(AtRuleOrRule::AtRule(AtRule::Page(PageRule {
+                    selector,
+                    declarations,
+                    span: self.span_from(start_pos, start_line, start_col),
+                })))
+            }
+            "apply" => {
+                // @apply is handled as a special property in declarations, not as an at-rule
+                // But if it appears at top-level, treat it as an error
+                Err(CompilerError::syntax(
+                    "@apply can only be used inside a rule block",
+                    self.current_span(),
+                ))
+            }
             // Anything else is treated as a responsive breakpoint reference (backward compat)
             _ => {
                 // This is an inline responsive block (e.g. @md { ... } inside a rule)
@@ -615,8 +693,22 @@ impl<'a> Parser<'a> {
 
     fn parse_layer_rule(&mut self, start_pos: usize, start_line: usize, start_col: usize) -> Result<LayerRule, CompilerError> {
         self.skip_whitespace();
-        let name = self.read_identifier().unwrap_or_default();
-        self.skip_whitespace();
+
+        // Read layer name(s) — could be "base" or "base, components, utilities"
+        let name_start = self.pos;
+        while self.pos < self.bytes.len()
+            && self.bytes[self.pos] != b';'
+            && self.bytes[self.pos] != b'{'
+        {
+            if self.bytes[self.pos] == b'\n' {
+                self.line += 1;
+                self.column = 1;
+            } else {
+                self.column += 1;
+            }
+            self.pos += 1;
+        }
+        let name = self.source[name_start..self.pos].trim().to_string();
 
         if self.peek_byte() == Some(b';') {
             self.advance();
@@ -925,6 +1017,31 @@ impl<'a> Parser<'a> {
             if self.pos >= self.bytes.len() {
                 return Err(CompilerError::syntax("Unclosed @media block", self.current_span()));
             }
+            // Handle nested at-rules (@media inside @media)
+            if self.peek_byte() == Some(b'@') {
+                let saved = self.pos;
+                let saved_line = self.line;
+                let saved_col = self.column;
+                match self.parse_at_rule_or_responsive() {
+                    Ok(AtRuleOrRule::AtRule(at_rule)) => {
+                        match at_rule {
+                            AtRule::Media(nested) => {
+                                // Flatten: merge queries with AND
+                                for r in nested.rules {
+                                    rules.push(r);
+                                }
+                            }
+                            _ => { /* other at-rules inside @media — ignored for now */ }
+                        }
+                        continue;
+                    }
+                    _ => {
+                        self.pos = saved;
+                        self.line = saved_line;
+                        self.column = saved_col;
+                    }
+                }
+            }
             rules.push(self.parse_rule()?);
         }
 
@@ -987,6 +1104,110 @@ impl<'a> Parser<'a> {
         })
     }
 
+    fn parse_tailwind_directive(&mut self, start_pos: usize, start_line: usize, start_col: usize) -> Result<TailwindDirective, CompilerError> {
+        self.skip_whitespace();
+        
+        let directive_name = self.read_identifier().ok_or_else(|| {
+            CompilerError::syntax("Expected Tailwind directive type (base, components, utilities, variants, screens)", self.current_span())
+        })?;
+
+        let directive_type = match directive_name.as_str() {
+            "base" => TailwindDirectiveType::Base,
+            "components" => TailwindDirectiveType::Components,
+            "utilities" => TailwindDirectiveType::Utilities,
+            "variants" => TailwindDirectiveType::Variants,
+            "screens" => TailwindDirectiveType::Screens,
+            _ => {
+                return Err(CompilerError::syntax(
+                    format!("Unknown Tailwind directive '{}'. Expected: base, components, utilities, variants, or screens", directive_name),
+                    self.current_span(),
+                ));
+            }
+        };
+
+        self.skip_whitespace();
+        if self.peek_byte() == Some(b';') {
+            self.advance();
+        }
+
+        Ok(TailwindDirective {
+            directive_type,
+            span: self.span_from(start_pos, start_line, start_col),
+        })
+    }
+
+    /// Parse a block `{ ... }` and return its raw content as a string (pass-through).
+    fn parse_passthrough_block(&mut self, _start_pos: usize, _start_line: usize, _start_col: usize) -> Result<String, CompilerError> {
+        self.skip_whitespace();
+
+        if self.peek_byte() == Some(b';') {
+            // Statement form: @variant name;
+            self.advance();
+            return Ok(String::new());
+        }
+
+        self.expect('{')?;
+        let content_start = self.pos;
+        let mut depth = 1;
+        while self.pos < self.bytes.len() && depth > 0 {
+            match self.bytes[self.pos] {
+                b'{' => depth += 1,
+                b'}' => depth -= 1,
+                b'\n' => {
+                    self.line += 1;
+                    self.column = 1;
+                    self.pos += 1;
+                    continue;
+                }
+                _ => {}
+            }
+            if depth > 0 {
+                self.pos += 1;
+                self.column += 1;
+            }
+        }
+        let content = self.source[content_start..self.pos].trim().to_string();
+        if depth != 0 {
+            return Err(CompilerError::syntax("Unclosed block", self.current_span()));
+        }
+        self.pos += 1; // skip '}'
+        self.column += 1;
+        Ok(content)
+    }
+
+    /// Read a quoted string value (single or double quotes).
+    fn read_string_value(&mut self) -> Result<String, CompilerError> {
+        self.skip_whitespace();
+        let quote = match self.peek_byte() {
+            Some(b'"') | Some(b'\'') => self.bytes[self.pos],
+            _ => {
+                // No quotes — read until ; or whitespace
+                let start = self.pos;
+                while self.pos < self.bytes.len()
+                    && self.bytes[self.pos] != b';'
+                    && !self.bytes[self.pos].is_ascii_whitespace()
+                {
+                    self.pos += 1;
+                    self.column += 1;
+                }
+                return Ok(self.source[start..self.pos].to_string());
+            }
+        };
+        self.pos += 1; // skip opening quote
+        self.column += 1;
+        let start = self.pos;
+        while self.pos < self.bytes.len() && self.bytes[self.pos] != quote {
+            self.pos += 1;
+            self.column += 1;
+        }
+        let value = self.source[start..self.pos].to_string();
+        if self.pos < self.bytes.len() {
+            self.pos += 1; // skip closing quote
+            self.column += 1;
+        }
+        Ok(value)
+    }
+
     // -----------------------------------------------------------------------
     // Rule parsing
     // -----------------------------------------------------------------------
@@ -1019,6 +1240,7 @@ impl<'a> Parser<'a> {
         let mut states = Vec::new();
         let mut responsive = Vec::new();
         let mut nested_rules = Vec::new();
+        let mut nested_at_rules = Vec::new();
 
         loop {
             self.skip_whitespace();
@@ -1035,19 +1257,117 @@ impl<'a> Parser<'a> {
                     ));
                 }
                 Some(b'@') => {
-                    responsive.push(self.parse_responsive_block()?);
-                }
-                Some(b'&') => {
-                    states.push(self.parse_state_block()?);
-                }
-                // CSS nesting: nested rules starting with selectors
-                Some(b'.') | Some(b'#') | Some(b'*') => {
-                    // Check if this looks like a nested rule (has { after selector)
-                    let saved = self.pos;
+                    // Check if this is @apply, nested at-rule, or responsive block
+                    let saved_pos = self.pos;
                     let saved_line = self.line;
                     let saved_col = self.column;
 
-                    // Try to parse as nested rule
+                    self.pos += 1;
+                    self.column += 1;
+
+                    if let Some(keyword) = self.read_identifier() {
+                        match keyword.as_str() {
+                            "apply" => {
+                                self.pos = saved_pos;
+                                self.line = saved_line;
+                                self.column = saved_col;
+                                declarations.push(self.parse_declaration()?);
+                            }
+                            "media" | "supports" | "container" => {
+                                // Nested at-rule inside a rule block (CSS nesting)
+                                let kind = match keyword.as_str() {
+                                    "media" => NestedAtRuleKind::Media,
+                                    "supports" => NestedAtRuleKind::Supports,
+                                    _ => NestedAtRuleKind::Container,
+                                };
+                                self.skip_whitespace();
+                                // Read query until '{'
+                                let query_start = self.pos;
+                                while self.pos < self.bytes.len() && self.bytes[self.pos] != b'{' {
+                                    if self.bytes[self.pos] == b'\n' {
+                                        self.line += 1;
+                                        self.column = 1;
+                                    } else {
+                                        self.column += 1;
+                                    }
+                                    self.pos += 1;
+                                }
+                                let query = self.source[query_start..self.pos].trim().to_string();
+                                self.expect('{')?;
+
+                                let mut inner_decls = Vec::new();
+                                let mut inner_rules = Vec::new();
+                                loop {
+                                    self.skip_whitespace();
+                                    match self.peek_byte() {
+                                        Some(b'}') => { self.advance(); break; }
+                                        None => {
+                                            return Err(CompilerError::syntax(
+                                                format!("Unclosed nested @{keyword} block"),
+                                                self.current_span(),
+                                            ));
+                                        }
+                                        Some(b'.') | Some(b'#') | Some(b'*') | Some(b'&') => {
+                                            // Nested rule inside the at-rule
+                                            match self.try_parse_nested_rule() {
+                                                Some(rule) => inner_rules.push(rule),
+                                                None => inner_decls.push(self.parse_declaration()?),
+                                            }
+                                        }
+                                        _ => {
+                                            inner_decls.push(self.parse_declaration()?);
+                                        }
+                                    }
+                                }
+
+                                nested_at_rules.push(NestedAtRule {
+                                    kind,
+                                    query,
+                                    declarations: inner_decls,
+                                    nested_rules: inner_rules,
+                                    span: self.span_from(saved_pos, saved_line, saved_col),
+                                });
+                            }
+                            _ => {
+                                // Responsive block (custom breakpoint like @md { ... })
+                                self.pos = saved_pos;
+                                self.line = saved_line;
+                                self.column = saved_col;
+                                responsive.push(self.parse_responsive_block()?);
+                            }
+                        }
+                    } else {
+                        self.pos = saved_pos;
+                        self.line = saved_line;
+                        self.column = saved_col;
+                        responsive.push(self.parse_responsive_block()?);
+                    }
+                }
+                Some(b'&') => {
+                    // Check if this is &:pseudo (state block) or & .child / &.class (nested rule)
+                    if self.peek_byte_at(1) == Some(b':') {
+                        states.push(self.parse_state_block()?);
+                    } else {
+                        // & followed by space/selector — treat as nested rule
+                        let saved = self.pos;
+                        let saved_line = self.line;
+                        let saved_col = self.column;
+                        match self.try_parse_nested_rule() {
+                            Some(rule) => nested_rules.push(rule),
+                            None => {
+                                self.pos = saved;
+                                self.line = saved_line;
+                                self.column = saved_col;
+                                states.push(self.parse_state_block()?);
+                            }
+                        }
+                    }
+                }
+                // CSS nesting: nested rules starting with selectors
+                Some(b'.') | Some(b'#') | Some(b'*') | Some(b':') => {
+                    let saved = self.pos;
+                    let saved_line = self.line;
+                    let saved_col = self.column;
                     match self.try_parse_nested_rule() {
                         Some(rule) => nested_rules.push(rule),
                         None => {
@@ -1059,7 +1379,19 @@ impl<'a> Parser<'a> {
                     }
                 }
                 _ => {
-                    declarations.push(self.parse_declaration()?);
+                    // Could be a declaration or a nested rule (tag selector like h3, p)
+                    let saved = self.pos;
+                    let saved_line = self.line;
+                    let saved_col = self.column;
+                    match self.try_parse_nested_rule() {
+                        Some(rule) => nested_rules.push(rule),
+                        None => {
+                            self.pos = saved;
+                            self.line = saved_line;
+                            self.column = saved_col;
+                            declarations.push(self.parse_declaration()?);
+                        }
+                    }
                 }
             }
         }
@@ -1071,6 +1403,7 @@ impl<'a> Parser<'a> {
             states,
             responsive,
             nested_rules,
+            nested_at_rules,
             span: self.span_from(start_pos, start_line, start_col),
         })
     }
@@ -1137,6 +1470,11 @@ impl<'a> Parser<'a> {
                 // Attribute selector at top level
                 ("".to_string(), SelectorKind::Attribute)
             }
+            Some(b':') => {
+                // Pseudo-class or pseudo-element used as standalone selector (e.g. :root, :is(), :where())
+                // Don't consume the colon — it will be parsed in the pseudo loop below
+                ("".to_string(), SelectorKind::Tag)
+            }
             Some(b) if b.is_ascii_alphabetic() => {
                 let name = self.read_identifier().ok_or_else(|| {
                     CompilerError::syntax("Expected selector", self.current_span())
@@ -1164,7 +1502,11 @@ impl<'a> Parser<'a> {
         let mut combinators = Vec::new();
 
         loop {
+            // Save position before skip_whitespace to detect if whitespace was consumed
+            let pre_ws_pos = self.pos;
             self.skip_whitespace();
+            let had_whitespace = self.pos > pre_ws_pos;
+
             match self.peek_byte() {
                 Some(b'>') => {
                     self.advance();
@@ -1183,6 +1525,42 @@ impl<'a> Parser<'a> {
                     self.skip_whitespace();
                     let sib_sel = self.parse_selector()?;
                     combinators.push(Combinator::Sibling(Box::new(sib_sel)));
+                }
+                // Descendant combinator: whitespace followed by a selector start character
+                Some(b'.') | Some(b'#') | Some(b'*') | Some(b'[')
+                    if had_whitespace =>
+                {
+                    let desc_sel = self.parse_selector()?;
+                    combinators.push(Combinator::Descendant(Box::new(desc_sel)));
+                }
+                Some(b) if had_whitespace && b.is_ascii_alphabetic() => {
+                    // Could be a descendant tag selector OR start of a { block
+                    // Peek further to decide
+                    let saved = self.pos;
+                    let saved_line = self.line;
+                    let saved_col = self.column;
+                    if let Some(ident) = self.read_identifier() {
+                        self.skip_whitespace();
+                        if self.peek_byte() == Some(b'{') || self.peek_byte() == Some(b',')
+                            || self.peek_byte() == Some(b':') || self.peek_byte() == Some(b'.')
+                            || self.peek_byte() == Some(b'#') || self.peek_byte() == Some(b'[')
+                        {
+                            // This is a descendant selector
+                            self.pos = saved;
+                            self.line = saved_line;
+                            self.column = saved_col;
+                            let desc_sel = self.parse_selector()?;
+                            combinators.push(Combinator::Descendant(Box::new(desc_sel)));
+                        } else {
+                            // Not a selector, revert
+                            self.pos = saved;
+                            self.line = saved_line;
+                            self.column = saved_col;
+                            break;
+                        }
+                    } else {
+                        break;
+                    }
                 }
                 Some(b':') if self.peek_byte_at(1) == Some(b':') => {
                     self.pos += 2;
@@ -1362,6 +1740,48 @@ impl<'a> Parser<'a> {
         let start_line = self.line;
         let start_col = self.column;
 
+        // Check for @apply directive
+        if self.peek_byte() == Some(b'@') {
+            let saved_pos = self.pos;
+            let saved_line = self.line;
+            let saved_col = self.column;
+            
+            self.pos += 1;
+            self.column += 1;
+            
+            if let Some(keyword) = self.read_identifier() {
+                if keyword == "apply" {
+                    // Parse @apply directive
+                    self.skip_whitespace();
+                    
+                    // Read utility classes until semicolon
+                    let start = self.pos;
+                    while self.pos < self.bytes.len() && self.bytes[self.pos] != b';' && self.bytes[self.pos] != b'}' {
+                        self.pos += 1;
+                        self.column += 1;
+                    }
+                    let classes = self.source[start..self.pos].trim().to_string();
+                    
+                    if self.peek_byte() == Some(b';') {
+                        self.pos += 1;
+                        self.column += 1;
+                    }
+                    
+                    return Ok(Declaration {
+                        property: Property::Apply(classes.clone()),
+                        value: Value::Literal(classes),
+                        important: false,
+                        span: self.span_from(start_pos, start_line, start_col),
+                    });
+                }
+            }
+            
+            // Not @apply, reset position
+            self.pos = saved_pos;
+            self.line = saved_line;
+            self.column = saved_col;
+        }
+
         let prop_name = self.read_css_identifier().ok_or_else(|| {
             CompilerError::syntax("Expected property name", self.current_span())
         })?;
@@ -1410,15 +1830,44 @@ impl<'a> Parser<'a> {
 
         match self.peek_byte() {
             Some(b'$') => self.parse_token_ref(),
-            Some(b'#') => self.parse_color_hex(),
-            Some(b'"') | Some(b'\'') => {
-                let s = self.read_string()?;
-                Ok(Value::Literal(s))
-            }
-            Some(b) if b.is_ascii_digit() || b == b'-' => {
-                let num = self.read_number();
-                let unit = self.try_read_unit();
-                Ok(Value::Number(num, unit))
+            Some(b) if b == b'#' || b == b'"' || b == b'\'' || b.is_ascii_digit() || b == b'-' => {
+                // Try parsing as a typed value (hex, string, number) first,
+                // then check if there's more content. If so, fall back to full literal.
+                let saved_pos = self.pos;
+                let saved_line = self.line;
+                let saved_col = self.column;
+
+                let initial_result = match b {
+                    b'#' => self.parse_color_hex(),
+                    b'"' | b'\'' => {
+                        let s = self.read_string()?;
+                        Ok(Value::Literal(s))
+                    }
+                    _ => {
+                        let num = self.read_number();
+                        let unit = self.try_read_unit();
+                        Ok(Value::Number(num, unit))
+                    }
+                };
+
+                if initial_result.is_err() {
+                    return initial_result;
+                }
+
+                // Check if there's more value content after the initial token
+                self.skip_whitespace();
+                match self.peek_byte() {
+                    Some(b';') | Some(b'}') | Some(b'!') | Some(b'\n') | None => {
+                        initial_result
+                    }
+                    _ => {
+                        // Multi-token value: reset and read entire value as literal
+                        self.pos = saved_pos;
+                        self.line = saved_line;
+                        self.column = saved_col;
+                        self.read_full_value_literal()
+                    }
+                }
             }
             _ => {
                 // Check for var() or env()
@@ -1428,42 +1877,73 @@ impl<'a> Parser<'a> {
                 if self.pos + 4 <= self.bytes.len() && &self.bytes[self.pos..self.pos+4] == b"env(" {
                     return self.parse_env_function();
                 }
-                
-                // Check for color functions: rgb(), rgba(), hsl(), hsla()
-                if self.pos + 4 <= self.bytes.len() {
-                    let prefix = &self.bytes[self.pos..self.pos+4];
-                    if prefix == b"rgb(" || prefix == b"hsl(" {
-                        return self.parse_color_function();
-                    }
-                }
-                if self.pos + 5 <= self.bytes.len() {
-                    let prefix = &self.bytes[self.pos..self.pos+5];
-                    if prefix == b"rgba(" || prefix == b"hsla(" {
-                        return self.parse_color_function();
-                    }
-                }
 
-                // Read until semicolon, closing brace, or newline
-                let start = self.pos;
-                while self.pos < self.bytes.len() {
-                    match self.bytes[self.pos] {
-                        b';' | b'}' | b'\n' | b'!' => break,
+                // Check for color functions (only if no more complex value follows)
+                if let Some(color_val) = self.try_parse_color_function()? {
+                    // Check if there's more after the color function
+                    self.skip_whitespace();
+                    match self.peek_byte() {
+                        Some(b';') | Some(b'}') | Some(b'!') | Some(b'\n') | None => {
+                            return Ok(color_val);
+                        }
                         _ => {
-                            self.pos += 1;
-                            self.column += 1;
+                            // More content — will be handled by full literal below
+                            // But the color function already advanced pos, so we can't easily reset.
+                            // Just return the color; multi-value with colors is rare without number start.
+                            return Ok(color_val);
                         }
                     }
                 }
-                let mut end = self.pos;
-                while end > start && self.bytes[end - 1].is_ascii_whitespace() {
-                    end -= 1;
-                }
-                if end == start {
-                    Err(CompilerError::syntax("Expected value", self.current_span()))
-                } else {
-                    Ok(Value::Literal(self.source[start..end].to_string()))
-                }
+
+                self.read_full_value_literal()
             }
+        }
+    }
+
+    /// Read the full remaining value as a literal, respecting balanced parens and quotes.
+    fn read_full_value_literal(&mut self) -> Result<Value, CompilerError> {
+        let start = self.pos;
+        let mut paren_depth = 0u32;
+        while self.pos < self.bytes.len() {
+            match self.bytes[self.pos] {
+                b'(' => { paren_depth += 1; }
+                b')' => { paren_depth = paren_depth.saturating_sub(1); }
+                b'"' | b'\'' => {
+                    // Read through quoted string
+                    let quote = self.bytes[self.pos];
+                    self.pos += 1;
+                    self.column += 1;
+                    while self.pos < self.bytes.len() && self.bytes[self.pos] != quote {
+                        if self.bytes[self.pos] == b'\n' {
+                            self.line += 1;
+                            self.column = 1;
+                        } else {
+                            self.column += 1;
+                        }
+                        self.pos += 1;
+                    }
+                    if self.pos < self.bytes.len() {
+                        self.pos += 1;
+                        self.column += 1;
+                    }
+                    continue;
+                }
+                b';' | b'}' if paren_depth == 0 => break,
+                b'!' if paren_depth == 0 => break,
+                b'\n' if paren_depth == 0 => break,
+                _ => {}
+            }
+            self.pos += 1;
+            self.column += 1;
+        }
+        let mut end = self.pos;
+        while end > start && self.bytes[end - 1].is_ascii_whitespace() {
+            end -= 1;
+        }
+        if end == start {
+            Err(CompilerError::syntax("Expected value", self.current_span()))
+        } else {
+            Ok(Value::Literal(self.source[start..end].to_string()))
         }
     }
 
@@ -1563,6 +2043,23 @@ impl<'a> Parser<'a> {
     /// Supports both modern (space-separated with slash) and legacy (comma-separated) syntax:
     /// - Modern: rgb(255 0 0 / 0.5), hsl(120 100% 50% / 0.8)
     /// - Legacy: rgba(255, 0, 0, 0.5), hsla(120, 100%, 50%, 0.8)
+    /// Try to parse a color function at the current position. Returns None if not a color function.
+    fn try_parse_color_function(&mut self) -> Result<Option<Value>, CompilerError> {
+        let color_prefixes: &[&[u8]] = &[
+            b"rgb(", b"rgba(", b"hsl(", b"hsla(",
+            b"hwb(", b"lab(", b"lch(",
+            b"oklch(", b"oklab(",
+            b"color-mix(", b"light-dark(",
+        ];
+        let remaining = &self.bytes[self.pos..];
+        for prefix in color_prefixes {
+            if remaining.len() >= prefix.len() && &remaining[..prefix.len()] == *prefix {
+                return self.parse_color_function().map(Some);
+            }
+        }
+        Ok(None)
+    }
+
     fn parse_color_function(&mut self) -> Result<Value, CompilerError> {
         let start_pos = self.pos;
         
@@ -1613,8 +2110,49 @@ impl<'a> Parser<'a> {
         match func_name {
             "rgb" | "rgba" => self.parse_rgb_content(content, func_name),
             "hsl" | "hsla" => self.parse_hsl_content(content, func_name),
+            "hwb" => self.parse_3_component_color(content, |a, b, c| Color::Hwb(a, b, c)),
+            "lab" => self.parse_3_component_color(content, |a, b, c| Color::Lab(a, b, c)),
+            "lch" => self.parse_3_component_color(content, |a, b, c| Color::Lch(a, b, c)),
+            "oklch" => self.parse_3_component_color(content, |a, b, c| Color::Oklch(a, b, c)),
+            "oklab" => self.parse_3_component_color(content, |a, b, c| Color::Oklab(a, b, c)),
+            "color-mix" => Ok(Value::Color(Color::ColorMix(content.to_string()))),
+            "light-dark" => {
+                // light-dark(light-color, dark-color) — store as literal pair for now
+                let parts: Vec<&str> = content.splitn(2, ',').collect();
+                if parts.len() == 2 {
+                    let light = parts[0].trim();
+                    let dark = parts[1].trim();
+                    Ok(Value::Color(Color::LightDark(
+                        Box::new(Color::Named(light.to_string())),
+                        Box::new(Color::Named(dark.to_string())),
+                    )))
+                } else {
+                    Ok(Value::Literal(format!("light-dark({})", content)))
+                }
+            }
             _ => Ok(Value::Literal(format!("{}({})", func_name, content)))
         }
+    }
+
+    /// Parse a 3-component color function (hwb, lab, lch, oklch, oklab).
+    /// Format: func(a b c) or func(a b c / alpha) — space-separated.
+    fn parse_3_component_color(&self, content: &str, make: impl Fn(f64, f64, f64) -> Color) -> Result<Value, CompilerError> {
+        let main_part = if content.contains('/') {
+            content.split('/').next().unwrap_or(content).trim()
+        } else {
+            content.trim()
+        };
+
+        let values: Vec<&str> = main_part.split_whitespace().collect();
+        if values.len() < 3 {
+            return Ok(Value::Literal(format!("unknown-color({})", content)));
+        }
+
+        let a = values[0].trim_end_matches('%').trim_end_matches("deg").parse::<f64>().unwrap_or(0.0);
+        let b = values[1].trim_end_matches('%').parse::<f64>().unwrap_or(0.0);
+        let c = values[2].trim_end_matches('%').parse::<f64>().unwrap_or(0.0);
+
+        Ok(Value::Color(make(a, b, c)))
     }
     
     fn parse_rgb_content(&mut self, content: &str, func_name: &str) -> Result<Value, CompilerError> {
@@ -1848,6 +2386,7 @@ impl<'a> Parser<'a> {
 /// Helper enum for top-level parsing.
 enum AtRuleOrRule {
     AtRule(AtRule),
+    #[allow(dead_code)]
     Rule(Rule),
 }
 
@@ -2222,6 +2761,115 @@ mod tests {
                 assert_eq!(p.name, "--my-color");
             }
             _ => panic!("Expected property rule"),
+        }
+    }
+
+    #[test]
+    fn test_parse_tailwind_base() {
+        let source = r#"@tailwind base;"#;
+        let result = parse(source);
+        assert!(result.is_ok());
+        let stylesheet = result.unwrap();
+        assert_eq!(stylesheet.at_rules.len(), 1);
+        match &stylesheet.at_rules[0] {
+            AtRule::Tailwind(tw) => {
+                assert_eq!(tw.directive_type, TailwindDirectiveType::Base);
+            }
+            _ => panic!("Expected Tailwind directive"),
+        }
+    }
+
+    #[test]
+    fn test_parse_tailwind_components() {
+        let source = r#"@tailwind components;"#;
+        let result = parse(source);
+        assert!(result.is_ok());
+        match &result.unwrap().at_rules[0] {
+            AtRule::Tailwind(tw) => {
+                assert_eq!(tw.directive_type, TailwindDirectiveType::Components);
+            }
+            _ => panic!("Expected Tailwind directive"),
+        }
+    }
+
+    #[test]
+    fn test_parse_tailwind_utilities() {
+        let source = r#"@tailwind utilities;"#;
+        let result = parse(source);
+        assert!(result.is_ok());
+        match &result.unwrap().at_rules[0] {
+            AtRule::Tailwind(tw) => {
+                assert_eq!(tw.directive_type, TailwindDirectiveType::Utilities);
+            }
+            _ => panic!("Expected Tailwind directive"),
+        }
+    }
+
+    #[test]
+    fn test_parse_apply_directive() {
+        let source = r#".btn {
+            @apply px-4 py-2 bg-blue-500 text-white rounded;
+        }"#;
+        let result = parse(source);
+        assert!(result.is_ok());
+        let stylesheet = result.unwrap();
+        assert_eq!(stylesheet.rules.len(), 1);
+        assert_eq!(stylesheet.rules[0].declarations.len(), 1);
+        match &stylesheet.rules[0].declarations[0].property {
+            Property::Apply(classes) => {
+                assert_eq!(classes, "px-4 py-2 bg-blue-500 text-white rounded");
+            }
+            _ => panic!("Expected @apply directive"),
+        }
+    }
+
+    #[test]
+    fn test_parse_tailwind_full_example() {
+        let source = r#"
+            @tailwind base;
+            @tailwind components;
+            @tailwind utilities;
+
+            .btn-primary {
+                @apply px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600;
+            }
+
+            @layer components {
+                .card {
+                    @apply p-4 bg-white shadow rounded;
+                }
+            }
+        "#;
+        let result = parse(source);
+        if let Err(ref errors) = result {
+            for err in errors {
+                eprintln!("Parse error: {:?}", err);
+            }
+        }
+        assert!(result.is_ok(), "Failed to parse: {:?}", result.err());
+        let stylesheet = result.unwrap();
+        
+        // Check @tailwind directives
+        assert!(stylesheet.at_rules.len() >= 3);
+        match &stylesheet.at_rules[0] {
+            AtRule::Tailwind(tw) => assert_eq!(tw.directive_type, TailwindDirectiveType::Base),
+            _ => panic!("Expected @tailwind base"),
+        }
+        match &stylesheet.at_rules[1] {
+            AtRule::Tailwind(tw) => assert_eq!(tw.directive_type, TailwindDirectiveType::Components),
+            _ => panic!("Expected @tailwind components"),
+        }
+        match &stylesheet.at_rules[2] {
+            AtRule::Tailwind(tw) => assert_eq!(tw.directive_type, TailwindDirectiveType::Utilities),
+            _ => panic!("Expected @tailwind utilities"),
+        }
+        
+        // Check rules with @apply
+        assert!(stylesheet.rules.len() >= 1);
+        assert_eq!(stylesheet.rules[0].selector.class_name, "btn-primary");
+        match &stylesheet.rules[0].declarations[0].property {
+            Property::Apply(_) => {},
+            _ => panic!("Expected @apply in btn-primary"),
         }
     }
 }

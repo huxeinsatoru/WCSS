@@ -54,6 +54,7 @@ pub struct ContentScanner {
 
 /// A regex-based class name extractor with a name for debugging.
 struct ClassExtractor {
+    #[allow(dead_code)]
     name: &'static str,
     regex: Regex,
     /// Which capture group contains the class names (default: 1).
@@ -103,7 +104,7 @@ impl ContentScanner {
             // clsx/classnames: clsx('btn', 'primary')
             ClassExtractor {
                 name: "clsx function",
-                regex: Regex::new(r#"(?:clsx|classnames|cn)\s*\([^)]*['"]([^'"]+)['"]"#).unwrap(),
+                regex: Regex::new(r#"(?:clsx|classnames|cn)\s*\(([^)]+)\)"#).unwrap(),
                 capture_group: 1,
             },
         ];

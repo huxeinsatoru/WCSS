@@ -71,6 +71,7 @@ fn rule_with_class_strategy(class_name: String) -> impl Strategy<Value = Rule> {
         states: vec![],
         responsive: vec![],
         nested_rules: vec![],
+            nested_at_rules: vec![],
         span: Span::empty(),
     })
 }
@@ -134,6 +135,7 @@ fn stylesheet_with_usage_strategy() -> impl Strategy<Value = (StyleSheet, Vec<St
                                 states: vec![],
                                 responsive: vec![],
                                 nested_rules: vec![],
+            nested_at_rules: vec![],
                                 span: Span::empty(),
                             });
                         }

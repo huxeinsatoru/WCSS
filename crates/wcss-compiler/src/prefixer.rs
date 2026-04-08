@@ -89,6 +89,20 @@ fn prefix_rule(rule: &mut Rule, targets: &BrowserTargets) {
         }
     }
 
+    // Prefix nested at-rules
+    for nested_at in &mut rule.nested_at_rules {
+        let mut prefixed_decls = Vec::new();
+        for decl in &nested_at.declarations {
+            for (_, prefixed_decl) in generate_prefixed_declarations(decl, targets) {
+                prefixed_decls.push(prefixed_decl);
+            }
+        }
+        nested_at.declarations.extend(prefixed_decls);
+        for nested_rule in &mut nested_at.nested_rules {
+            prefix_rule(nested_rule, targets);
+        }
+    }
+
     // Prefix nested rules
     for nested in &mut rule.nested_rules {
         prefix_rule(nested, targets);
